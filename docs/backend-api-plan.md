@@ -117,9 +117,9 @@ Every monetary write route requires an `Idempotency-Key` header (constant `IDEMP
 
 ---
 
-## Workstream B — Core ledger (Person 1)
+## Workstream B — Core ledger (Person 1) — DONE
 
-**Everything else depends on this. Build it first.**
+**Everything else depends on this. Build it first.** Landed in PR #7 (`feature/core-ledger`). C and D: skip to [Ledger API for C and D](#ledger-api-for-c-and-d) below for exactly what to import.
 
 ### Files to create
 
@@ -151,6 +151,179 @@ lib/server/ledger/
 ### Key helper
 
 Write `getUserAccounts(userId)` that returns account IDs keyed by purpose (`mwk_wallet`, `usdt_wallet`, `card_funding`). All other workstreams use this to know which account to debit or credit.
+
+### Ledger API for C and D
+
+Everything below is server-only (`import "server-only"` is enforced; it will not bundle into a client component). All functions use the service-role client, so RLS does not apply — the route is responsible for calling `requireUser()` first and only touching that user's accounts.
+
+**Route skeleton** — every route looks like this. `route()` turns any thrown `ApiHttpError` / `LedgerError` / `MoneyError` into the standard `ApiError` envelope with the right HTTP status and a `request_id`; you never write a `try/catch` for errors.
+
+```ts
+// app/api/v1/cards/[id]/fund/route.ts
+import type { NextRequest } from "next/server";
+import type { FundCardResponse } from "@/lib/contracts";
+import { requireUser } from "@/lib/server/auth";
+import { withIdempotency } from "@/lib/server/idempotency";
+import { field, parseBody, route } from "@/lib/server/http";
+import { transferBetweenUserAccounts } from "@/lib/server/ledger/transfer";
+
+export const POST = route(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
+  const { userId } = await requireUser();
+  const { id: cardId } = await ctx.params;
+  const body = await parseBody(req, (b) => ({
+    amount_units: field.positiveMinorUnits(b, "amount_units"), // bigint
+  }));
+
+  return withIdempotency(req, { userId, route: "POST /api/v1/cards/:id/fund" }, body, async ({ operationId }) => {
+    const result = await transferBetweenUserAccounts({
+      userId, operationId, from: "usdt_wallet", to: "card_funding", amountUnits: body.amount_units, type: "card_fund",
+    });
+    return { status: 200, body: { /* FundCardResponse built from result */ } as FundCardResponse };
+  });
+});
+```
+
+**`lib/server/auth.ts`**
+
+```ts
+requireUser(): Promise<{ userId: string }>                                  // 401 UNAUTHORIZED
+requireVerifiedUser(): Promise<{ userId: string; profile: MeResponse }>     // 403 VERIFICATION_REQUIRED
+requireOperator(): Promise<{ userId: string; profile: MeResponse }>         // 403 FORBIDDEN — D's /demo routes
+getProfile(userId: string): Promise<MeResponse>
+```
+
+**`lib/server/http.ts`**
+
+```ts
+route(handler)                                    // wrap every export const GET/POST
+ok<T>(body: T, { status?, headers?, requestId? }): Response
+parseBody<T>(req, (body: JsonObject) => T): Promise<T>   // JSON parse + your field checks → 400 VALIDATION_ERROR
+field.string / optionalString / uuid / oneOf / optionalOneOf
+field.minorUnits(body, key): bigint               // "20400000" → 20400000n, zero allowed
+field.positiveMinorUnits(body, key): bigint       // > 0 or 400
+field.nullablePositiveMinorUnits(body, key): bigint | null | undefined
+new ApiHttpError(code: ErrorCode, { message?, details? })  // throw this for business errors
+```
+
+**`lib/server/idempotency.ts`** — required on the four routes in `IDEMPOTENT_ROUTES` (`lib/contracts/index.ts`): `POST /api/v1/deposits`, `POST /api/v1/conversions`, `POST /api/v1/cards/:id/fund`, `POST /api/v1/demo/purchases`. Pass the string exactly as listed there.
+
+```ts
+withIdempotency<T>(
+  req: Request,
+  scope: { userId: string; route: IdempotentRoute },   // route string exactly as in IDEMPOTENT_ROUTES
+  body: unknown,                                       // the parsed body; hashed with stableStringify (bigint-safe)
+  handler: ({ operationId, requestId }) => Promise<{ status: number; body: T }>,
+): Promise<Response>
+```
+
+Behaviour: missing header → 400; same key + same body → replays the stored response with header `Idempotent-Replayed: true`; same key + different body → 409 `IDEMPOTENCY_CONFLICT`; a handler that threw a 5xx (or died mid-flight for 60 s) is retried **with the same `operationId`**, so the ledger short-circuits and no money moves twice. Always pass that `operationId` straight into `postJournal` / `placeHold` / `transferBetweenUserAccounts`.
+
+**`lib/server/ledger/accounts.ts`**
+
+```ts
+type UserAccountPurpose = "mwk_wallet" | "usdt_wallet" | "card_funding";
+type SystemAccountPurpose = "collection_clearing" | "fx_clearing_mwk" | "fx_clearing_usdt" | "fee_revenue" | "liquidity_inventory";
+type AccountRef = { id: string; asset: Asset };
+
+getUserAccounts(userId): Promise<Record<UserAccountPurpose, AccountRef>>   // throws 500 if the signup trigger didn't run
+getSystemAccount(purpose: SystemAccountPurpose, asset: Asset): Promise<AccountRef>
+getAccount(accountId): Promise<AccountRow | null>
+assertAccountOwner(accountId, userId): Promise<AccountRow>                 // 403 FORBIDDEN
+```
+
+**`lib/server/ledger/post.ts`**
+
+```ts
+debit(account: AccountRef, units: bigint): JournalEntryInput    // money leaves the account
+credit(account: AccountRef, units: bigint): JournalEntryInput   // money arrives
+
+postJournal({
+  operationId: string;          // deposit id / conversion id / withIdempotency's operationId
+  type: JournalType;            // "deposit" | "conversion" | "card_fund" | "card_auth" | "card_capture" | "card_reversal" | "refund" | "fee"
+  entries: JournalEntryInput[]; // ≥ 2, balanced per asset
+  consumeHoldIds?: string[];    // card capture: mark these active holds consumed in the same transaction
+  reversalOf?: string | null;   // prefer reverseJournal() below
+}): Promise<{ journalId: string }>
+
+reverseJournal({ journalId, operationId, type }): Promise<{ journalId: string }>   // mirrored entries, never edits
+getJournal(journalId): Promise<JournalWithEntries | null>
+getJournalsForOperation(operationId): Promise<JournalRow[]>
+```
+
+`postJournal` is idempotent on `(operationId, type)` — calling it twice returns the same `journalId`. Within one journal you may mix assets **only if each asset balances on its own** (a conversion is one journal: MWK legs balance, USDT legs balance). User-owned accounts cannot go below zero (`INSUFFICIENT_FUNDS`); system accounts can.
+
+**`lib/server/ledger/holds.ts`** (D: card authorization)
+
+```ts
+placeHold({ accountId, operationId, amountUnits: bigint, expiresAt? }): Promise<{ holdId: string }>   // INSUFFICIENT_FUNDS if > available
+releaseHold(holdId): Promise<void>                       // active → released; released is a no-op; consumed → HOLD_NOT_ACTIVE
+getHold(holdId): Promise<HoldRow | null>
+getHoldForOperation(accountId, operationId): Promise<HoldRow | null>
+// consume = postJournal({ ..., consumeHoldIds: [holdId] }) — capture and consume are one transaction
+```
+
+**`lib/server/ledger/balances.ts`**
+
+```ts
+getWalletBalances(userId): Promise<WalletBalance[]>                    // the three user accounts, ordered
+getAccountBalance(accountId): Promise<WalletBalance>                   // 404 NOT_FOUND
+getAccountBalances(accountIds: string[]): Promise<Map<string, WalletBalance>>
+```
+
+**`lib/server/ledger/transfer.ts`** (D: card funding)
+
+```ts
+transferBetweenUserAccounts({ userId, operationId, from, to, amountUnits: bigint, type?: "card_fund" })
+  : Promise<{ journalId: string; from: WalletBalance; to: WalletBalance }>
+```
+
+**Recipes**
+
+```ts
+// C — confirm an MWK deposit (webhook or mock confirm)
+const { mwk_wallet } = await getUserAccounts(userId);
+const clearing = await getSystemAccount("collection_clearing", "MWK");
+await postJournal({ operationId: deposit.id, type: "deposit",
+  entries: [debit(clearing, amount), credit(mwk_wallet, amount)] });
+
+// C — execute a conversion from an accepted quote (fee taken in MWK)
+const { mwk_wallet, usdt_wallet } = await getUserAccounts(userId);
+const fxMwk  = await getSystemAccount("fx_clearing_mwk", "MWK");
+const fxUsdt = await getSystemAccount("fx_clearing_usdt", "USDT");
+const fees   = await getSystemAccount("fee_revenue", "MWK");
+await postJournal({ operationId: conversion.id, type: "conversion", entries: [
+  debit(mwk_wallet, quote.source_units),                       // MWK side balances:
+  credit(fxMwk, quote.source_units - quote.fee_units),         //   source = (source − fee) + fee
+  credit(fees, quote.fee_units),
+  debit(fxUsdt, quote.destination_units),                      // USDT side balances on its own
+  credit(usdt_wallet, quote.destination_units),
+] });
+
+// D — authorize, then capture (consumes the hold atomically), or reverse
+const { holdId } = await placeHold({ accountId: card_funding.id, operationId: auth.id, amountUnits });
+await postJournal({ operationId: auth.id, type: "card_capture", consumeHoldIds: [holdId],
+  entries: [debit(card_funding, amountUnits), credit(await getSystemAccount("liquidity_inventory", "USDT"), amountUnits)] });
+// or: await releaseHold(holdId);
+```
+
+**Errors you will see** (all thrown as `LedgerError extends ApiHttpError`; `route()` maps them):
+
+| SQL / TS code | API `ErrorCode` | HTTP | Meaning |
+|---|---|---|---|
+| `INSUFFICIENT_FUNDS` | `INSUFFICIENT_FUNDS` | 422 | User account would go below zero (or hold > available) |
+| `LEDGER_INVALID_AMOUNT`, `HOLD_NOT_ACTIVE`, `LEDGER_REVERSAL_INVALID`, `TS_VALIDATION` | `VALIDATION_ERROR` | 400 | Bad amount, hold already consumed/released, journal already reversed, or `number` used for units |
+| `LEDGER_ACCOUNT_NOT_FOUND`, `HOLD_NOT_FOUND` | `NOT_FOUND` | 404 | |
+| `LEDGER_UNBALANCED`, `LEDGER_INVALID_ENTRIES`, `LEDGER_ASSET_MISMATCH` | `INTERNAL_ERROR` | 500 | **Your route built a bad journal.** Clients never send entries, so this is a server bug — check the recipe. |
+
+**Rules that will fail loudly if you break them**
+
+- Units are `bigint` end to end. Parse request bodies with `field.minorUnits` / `field.positiveMinorUnits`; a `number` anywhere in an entry throws `VALIDATION_ERROR` before the DB is touched.
+- Never call `admin.from("journals"|"journal_entries"|"holds").insert/update` directly — go through the functions above. The SQL functions are the only path that locks rows in a consistent order and validates balance.
+- Never edit or delete a posted journal. Compensate with `reverseJournal` or a new `postJournal`.
+- Reuse the same `operationId` on every retry of the same business action. New UUID per attempt = double posting.
+- Do not read the `account_balances` view from the browser; it is `service_role` only. Use `GET /api/v1/wallets`.
+
+**Migrations.** `supabase/migrations/` is the full history and matches `supabase_migrations.schema_migrations` on the project exactly (versions `20260919201358` → `20260919215715`). New schema changes: apply via Supabase MCP `apply_migration`, then save the identical SQL as `supabase/migrations/<version>_<name>.sql` in the same PR.
 
 ---
 
