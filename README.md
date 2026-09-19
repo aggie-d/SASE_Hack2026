@@ -6,3 +6,17 @@ https://agronildas.atlassian.net/?continue=https%3A%2F%2Fagronildas.atlassian.ne
 ## Devpost Link
 
 https://devpost.com/software/1435244/joins/CZ8OF6byHyxB46CdRptdYQ
+
+## Figma Link
+https://www.figma.com/design/o0G7GSfx08dRRVCV4s8QuZ/SASEHack?node-id=0-1&t=9K78YISFETSsfSJf-1
+
+## Tech Stacks
+
+React Framework through NextJS
+BRIDGE.xyz API
+Azure For Deployment
+SupaBase for Database
+Figma for design
+
+
+
