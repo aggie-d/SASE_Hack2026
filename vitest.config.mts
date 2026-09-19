@@ -6,6 +6,8 @@ export default defineConfig({
     alias: {
       // Mirror the "@/*" path alias from tsconfig.json.
       "@": fileURLToPath(new URL(".", import.meta.url)),
+      // `server-only` throws outside a React Server bundle; stub it under vitest.
+      "server-only": fileURLToPath(new URL("./tests/stubs/server-only.ts", import.meta.url)),
     },
   },
   test: {
