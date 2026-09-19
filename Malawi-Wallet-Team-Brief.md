@@ -1,4 +1,4 @@
-# Malawi Global Wallet — product and engineering team brief
+m# Malawi Global Wallet — product and engineering team brief
 
 Version 1.1 • 19 September 2026 • Proposed hackathon build
 
