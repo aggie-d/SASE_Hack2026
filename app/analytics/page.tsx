@@ -4,34 +4,15 @@ import { useState, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { formatMinorUnits, parseMinorUnits } from "@/lib/contracts/money";
 import type { ActivityListResponse } from "@/lib/contracts";
+import { PieChart } from "lucide-react";
 
-const spendingCategories = [
-  {
-    name: "Rent & Utilities",
-    percentage: 38,
-    color: "#DFB338",
-  },
-  {
-    name: "Food & Groceries",
-    percentage: 22,
-    color: "#60a5fa",
-  },
-  {
-    name: "Travel & Transport",
-    percentage: 16,
-    color: "#0066FF",
-  },
-  {
-    name: "Shopping",
-    percentage: 14,
-    color: "#C9A227",
-  },
-  {
-    name: "Services & Subscriptions",
-    percentage: 10,
-    color: "#0b4f93",
-  },
-];
+type SpendingCategory = {
+  name: string;
+  percentage: number;
+  color: string;
+};
+
+const CATEGORY_COLORS = ["#DFB338", "#60a5fa", "#0066FF", "#C9A227", "#0b4f93", "#10b981", "#a855f7"];
 
 type TransactionViewItem = {
   id?: string;
@@ -39,25 +20,14 @@ type TransactionViewItem = {
   merchant: string;
   amount: string;
   category: string;
+  isExpense?: boolean;
+  numericAmount?: number;
 };
 
 export default function AnalyticsPage() {
-  const [recentTransactions, setRecentTransactions] = useState<TransactionViewItem[]>([
-    {
-      id: "tx-default-1",
-      date: "Jul 29",
-      merchant: "Verizon Wireless",
-      amount: "-$115.40",
-      category: "Phone Bill",
-    },
-    {
-      id: "tx-default-2",
-      date: "Jul 28",
-      merchant: "Safeway",
-      amount: "-$98.15",
-      category: "Groceries",
-    },
-  ]);
+  const [spendingCategories, setSpendingCategories] = useState<SpendingCategory[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionViewItem[]>([]);
+  const [totalExpensesUsd, setTotalExpensesUsd] = useState("0.00");
 
   useEffect(() => {
     async function loadActivity() {
@@ -70,16 +40,48 @@ export default function AnalyticsPage() {
             const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
             const amtUnits = parseMinorUnits(item.amount.amount_units);
             const amtStr = formatMinorUnits(amtUnits, item.amount.asset, { code: false });
+            const isExpense = item.type === "purchase" || item.type === "conversion";
+            const numUnits = Number(amtUnits);
+            // Convert to USD value (MWK rate ~2000, USDT exponent 6)
+            const numericAmount = item.amount.asset === "MWK" ? numUnits / 200000 : numUnits / 1000000;
+
             return {
               id: item.id,
               date: dateStr,
               merchant: item.title,
-              amount: (item.type === "purchase" || item.type === "conversion" ? "-" : "+") + "$" + amtStr,
+              amount: (isExpense ? "-" : "+") + "$" + amtStr,
               category: item.type.charAt(0).toUpperCase() + item.type.slice(1),
+              isExpense,
+              numericAmount,
             };
           });
-          if (txs.length > 0) {
-            setRecentTransactions(txs);
+
+          setRecentTransactions(txs);
+
+          // Calculate actual total expenses
+          const expenseItems = txs.filter((t) => t.isExpense);
+          const totalSpent = expenseItems.reduce((acc, curr) => acc + (curr.numericAmount || 0), 0);
+          setTotalExpensesUsd(totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+          // Calculate category breakdown if expenses exist
+          if (expenseItems.length > 0 && totalSpent > 0) {
+            const catMap: Record<string, number> = {};
+            expenseItems.forEach((t) => {
+              const cat = t.category || "Other";
+              catMap[cat] = (catMap[cat] || 0) + (t.numericAmount || 0);
+            });
+
+            const computedCategories: SpendingCategory[] = Object.entries(catMap)
+              .map(([name, val], idx) => ({
+                name,
+                percentage: Math.round((val / totalSpent) * 100),
+                color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+              }))
+              .sort((a, b) => b.percentage - a.percentage);
+
+            setSpendingCategories(computedCategories);
+          } else {
+            setSpendingCategories([]);
           }
         }
       } catch (err) {
@@ -219,12 +221,7 @@ export default function AnalyticsPage() {
               </p>
 
               <p className="mt-3 text-4xl sm:text-5xl font-extrabold text-[#DFB338] tracking-tight">
-                $4,875.20
-              </p>
-
-              <p className="mt-3 text-sm text-slate-400">
-                vs Last Month:{" "}
-                <span className="font-semibold text-emerald-400">↑ 8.5%</span>
+                ${totalExpensesUsd}
               </p>
             </div>
           </div>
@@ -240,39 +237,58 @@ export default function AnalyticsPage() {
                 Monthly Spending Categorization
               </h2>
 
-              <div className="mt-4 sm:mt-6 flex-1 flex flex-col items-center justify-center gap-6 sm:gap-7 sm:flex-row">
-                <div
-                  aria-label="Monthly spending donut chart"
-                  className="relative h-36 w-36 sm:h-44 sm:w-44 shrink-0 rounded-full"
-                  style={{
-                    background:
-                      "conic-gradient(#DFB338 0% 38%, #60a5fa 38% 60%, #0066FF 60% 76%, #C9A227 76% 90%, #0b4f93 90% 100%)",
-                  }}
-                >
-                  <div className="absolute inset-10 sm:inset-12 rounded-full bg-[#0B1528]" />
+              {spendingCategories.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                  <div className="w-14 h-14 rounded-2xl bg-[#DFB338]/10 border border-[#DFB338]/20 flex items-center justify-center text-[#DFB338] mb-3 shadow-inner">
+                    <PieChart className="w-7 h-7 stroke-[1.8]" />
+                  </div>
+                  <p className="text-sm font-bold text-white max-w-xs">
+                    Start spending to track your spending habits!
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1.5 max-w-xs leading-relaxed">
+                    Your categorized breakdown and charts will automatically update here as you use your card.
+                  </p>
                 </div>
+              ) : (
+                <div className="mt-4 sm:mt-6 flex-1 flex flex-col items-center justify-center gap-6 sm:gap-7 sm:flex-row">
+                  <div
+                    aria-label="Monthly spending donut chart"
+                    className="relative h-36 w-36 sm:h-44 sm:w-44 shrink-0 rounded-full"
+                    style={{
+                      background: `conic-gradient(${spendingCategories
+                        .map((cat, idx, arr) => {
+                          const prevSum = arr.slice(0, idx).reduce((s, c) => s + c.percentage, 0);
+                          const nextSum = prevSum + cat.percentage;
+                          return `${cat.color} ${prevSum}% ${nextSum}%`;
+                        })
+                        .join(", ")})`,
+                    }}
+                  >
+                    <div className="absolute inset-10 sm:inset-12 rounded-full bg-[#0B1528]" />
+                  </div>
 
-                <ul className="w-full space-y-2.5 sm:space-y-3">
-                  {spendingCategories.map((category) => (
-                    <li
-                      key={category.name}
-                      className="flex items-center justify-between gap-3 text-xs sm:text-sm"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <span className="text-slate-300">{category.name}</span>
-                      </span>
+                  <ul className="w-full space-y-2.5 sm:space-y-3">
+                    {spendingCategories.map((category) => (
+                      <li
+                        key={category.name}
+                        className="flex items-center justify-between gap-3 text-xs sm:text-sm"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="text-slate-300">{category.name}</span>
+                        </span>
 
-                      <span className="font-semibold text-white">
-                        {category.percentage}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                        <span className="font-semibold text-white">
+                          {category.percentage}%
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Recent Transactions Card */}

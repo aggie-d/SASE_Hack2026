@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, Eye, EyeOff, Globe, Phone, ChevronDown } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Globe, Phone, ChevronDown, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Country = {
   name: string;
@@ -28,6 +29,7 @@ const defaultCountries: Country[] = [
 export default function Signup() {
   const [countries, setCountries] = useState<Country[]>(defaultCountries);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("https://countriesnow.space/api/v0.1/countries/flag/unicode")
@@ -52,11 +54,30 @@ export default function Signup() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate network delay for UX then redirect with message
-    setTimeout(() => {
-      window.location.href = "/login?message=" + encodeURIComponent("Account created successfully!");
-    }, 800);
+    setError(null);
+
+    const supabase = createClient();
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          display_name: formData.fullName,
+          phone: formData.phone,
+          country: formData.country,
+        },
+      },
+    });
+
+    setIsLoading(false);
+
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    // Redirect to login page with success notification
+    window.location.href = "/login?message=" + encodeURIComponent("Account created successfully!");
   };
 
   return (
@@ -148,7 +169,13 @@ export default function Signup() {
         </div>
 
         <form onSubmit={handleSignup} className="relative z-10 space-y-5">
-          {/* Full Name */}
+          {error && (
+            <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {/* Full Name */}
           <div className="space-y-1.5">
             <label className="text-sm text-stone-300">Full Name <span className="text-[#C9A227]">*</span></label>
@@ -159,6 +186,8 @@ export default function Signup() {
               <input 
                 type="text" 
                 required
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 placeholder="Enter your full name" 
                 className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
               />
@@ -175,6 +204,8 @@ export default function Signup() {
               <input 
                 type="email" 
                 required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="you@example.com" 
                 className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
               />
@@ -190,12 +221,13 @@ export default function Signup() {
               </div>
               <select 
                 required
-                defaultValue=""
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                 className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-10 py-3 appearance-none focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors"
               >
                 <option value="" disabled className="text-stone-500">Select your country</option>
                 {countries.map((country) => (
-                  <option key={country.name} value={country.iso2 || country.name}>
+                  <option key={country.name} value={country.name}>
                     {country.unicodeFlag} {country.name}
                   </option>
                 ))}
@@ -216,6 +248,8 @@ export default function Signup() {
               <input 
                 type="tel" 
                 required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+265 123 456 789" 
                 className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
               />
@@ -232,6 +266,8 @@ export default function Signup() {
               <input 
                 type={showPassword ? "text" : "password"} 
                 required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••" 
                 className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
               />
@@ -245,29 +281,12 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* Checkbox */}
-          <div className="flex items-start pt-2">
-            <div className="flex items-center h-5">
-              <input 
-                id="terms" 
-                type="checkbox" 
-                required
-                className="w-4 h-4 rounded bg-[#1F2937] border-stone-600 text-[#C9A227] focus:ring-[#C9A227] focus:ring-offset-[#111827]"
-              />
-            </div>
-            <div className="ml-3 text-sm">
-              <label htmlFor="terms" className="text-stone-300">
-                I agree to the <a href="#" className="text-[#C9A227] hover:underline">Terms of Service</a> and <a href="#" className="text-[#C9A227] hover:underline">Privacy Policy</a> <span className="text-[#C9A227]">*</span>
-              </label>
-            </div>
-          </div>
-
           {/* Submit Button */}
-          <div className="pt-4">
+          <div className="pt-2">
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] py-3.5 text-sm font-bold text-stone-900 shadow-[0_0_20px_rgba(201,162,39,0.3)] hover:shadow-[0_0_25px_rgba(201,162,39,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] py-3.5 text-sm font-bold text-stone-900 shadow-[0_0_20px_rgba(201,162,39,0.3)] hover:shadow-[0_0_25px_rgba(201,162,39,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? "Creating Account..." : "Create Account"}
             </button>

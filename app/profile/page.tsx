@@ -36,6 +36,49 @@ const CURRENCY_OPTIONS = [
   { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬" },
 ];
 
+const COUNTRY_OPTIONS = [
+  { name: "Malawi", code: "MW", flag: "🇲🇼" },
+  { name: "United States", code: "US", flag: "🇺🇸" },
+  { name: "United Kingdom", code: "GB", flag: "🇬🇧" },
+  { name: "South Africa", code: "ZA", flag: "🇿🇦" },
+  { name: "Kenya", code: "KE", flag: "🇰🇪" },
+  { name: "Nigeria", code: "NG", flag: "🇳🇬" },
+  { name: "India", code: "IN", flag: "🇮🇳" },
+  { name: "Japan", code: "JP", flag: "🇯🇵" },
+  { name: "United Arab Emirates", code: "AE", flag: "🇦🇪" },
+  { name: "Singapore", code: "SG", flag: "🇸🇬" },
+  { name: "Canada", code: "CA", flag: "🇨🇦" },
+  { name: "Germany", code: "DE", flag: "🇩🇪" },
+  { name: "France", code: "FR", flag: "🇫🇷" },
+  { name: "Australia", code: "AU", flag: "🇦🇺" },
+  { name: "China", code: "CN", flag: "🇨🇳" },
+  { name: "Brazil", code: "BR", flag: "🇧🇷" },
+  { name: "Mexico", code: "MX", flag: "🇲🇽" },
+  { name: "Philippines", code: "PH", flag: "🇵🇭" },
+  { name: "Indonesia", code: "ID", flag: "🇮🇩" },
+  { name: "South Korea", code: "KR", flag: "🇰🇷" },
+  { name: "Zambia", code: "ZM", flag: "🇿🇲" },
+  { name: "Zimbabwe", code: "ZW", flag: "🇿🇼" },
+  { name: "Tanzania", code: "TZ", flag: "🇹🇿" },
+  { name: "Ghana", code: "GH", flag: "🇬🇭" },
+  { name: "Rwanda", code: "RW", flag: "🇷🇼" },
+  { name: "Uganda", code: "UG", flag: "🇺🇬" },
+  { name: "Botswana", code: "BW", flag: "🇧🇼" },
+];
+
+function getCountryInfo(countryName: string) {
+  const normalized = (countryName || "").trim().toLowerCase();
+  const match = COUNTRY_OPTIONS.find(
+    (c) => c.name.toLowerCase() === normalized || c.code.toLowerCase() === normalized
+  );
+  if (match) return match;
+  return {
+    name: countryName || "Malawi",
+    code: (countryName || "MW").slice(0, 2).toUpperCase(),
+    flag: "🌐",
+  };
+}
+
 type PaymentMethod = {
   id: string;
   type: "card" | "bank" | "mobile";
@@ -135,6 +178,9 @@ export default function ProfilePage() {
       .join("")
       .toUpperCase()
       .slice(0, 2) || "U";
+
+  // Compute dynamic country info (flag and letters)
+  const countryInfo = getCountryInfo(profileData.country);
 
   // Handle Profile Picture Change (Requirement 4)
   const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -498,7 +544,10 @@ export default function ProfilePage() {
                   Country
                 </p>
                 <p className="text-base sm:text-lg font-bold text-white flex items-center justify-center sm:justify-start gap-2">
-                  <span>🇲🇼</span>
+                  <span className="text-xs font-mono font-extrabold px-1.5 py-0.5 rounded bg-slate-800 text-[#DFB338] border border-slate-700">
+                    {countryInfo.code}
+                  </span>
+                  <span>{countryInfo.flag}</span>
                   <span>{profileData.country}</span>
                 </p>
               </div>
@@ -541,36 +590,58 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            {/* Methods Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {paymentMethods.map((method) => (
-                <div
-                  key={method.id}
-                  className="rounded-2xl bg-[#131F37] border border-slate-700/60 p-4 flex items-center justify-between group hover:border-[#DFB338]/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338]">
-                      {method.iconType === "card" && <CreditCard className="w-5 h-5" />}
-                      {method.iconType === "bank" && <Building2 className="w-5 h-5" />}
-                      {method.iconType === "mobile" && <Smartphone className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{method.title}</p>
-                      <p className="text-xs font-mono text-slate-400">{method.subtitle}</p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePaymentMethod(method.id)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors opacity-60 group-hover:opacity-100"
-                    title="Remove method"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            {/* Methods Grid or Empty State */}
+            {paymentMethods.length === 0 ? (
+              <div className="rounded-2xl bg-[#131F37]/50 border border-slate-800/80 p-8 sm:p-10 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338] mb-3 shadow-inner">
+                  <CreditCard className="w-6 h-6 stroke-[1.8]" />
                 </div>
-              ))}
-            </div>
+                <p className="text-sm sm:text-base font-bold text-white mb-1.5">
+                  Link an account to start spending!
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mb-5 leading-relaxed">
+                  Add a credit or debit card, bank account, or mobile money wallet to fund your card and manage global transactions.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMethodModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] hover:from-[#e5bc42] hover:to-[#c49a21] text-stone-950 font-bold text-xs shadow-md transition-all active:scale-[0.98]"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Link New Payment Method</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {paymentMethods.map((method) => (
+                  <div
+                    key={method.id}
+                    className="rounded-2xl bg-[#131F37] border border-slate-700/60 p-4 flex items-center justify-between group hover:border-[#DFB338]/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338]">
+                        {method.iconType === "card" && <CreditCard className="w-5 h-5" />}
+                        {method.iconType === "bank" && <Building2 className="w-5 h-5" />}
+                        {method.iconType === "mobile" && <Smartphone className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{method.title}</p>
+                        <p className="text-xs font-mono text-slate-400">{method.subtitle}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePaymentMethod(method.id)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors opacity-60 group-hover:opacity-100"
+                      title="Remove method"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -747,12 +818,20 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300">Country</label>
-                  <input
-                    type="text"
-                    value={editFormData.country}
-                    onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
-                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#DFB338]"
-                  />
+                  <div className="relative">
+                    <select
+                      value={editFormData.country}
+                      onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
+                      className="w-full appearance-none bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-2.5 pr-8 text-sm focus:outline-none focus:border-[#DFB338] cursor-pointer"
+                    >
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.name} className="bg-[#0B1528] text-white">
+                          {c.flag} {c.name} ({c.code})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300">Preferred Currency</label>
