@@ -1,4 +1,4 @@
-# Malawi Global Wallet — product and engineering team brief
+m# Malawi Global Wallet — product and engineering team brief
 
 Version 1.1 • 19 September 2026 • Proposed hackathon build
 
@@ -141,7 +141,28 @@ This is an implementation proposal, not a requirement to use a particular host. 
 
 The database is authoritative. A front-end state change or a client-supplied “success” cannot create funds.
 
-Represent monetary amounts as integer base units and transmit them as JSON strings. For this prototype, accept whole-MWK amounts only and configure MWK scale as 0; internal USDT scale is 6. Whole-MWK input is a product convention for this demo, not a claim about every provider’s MWK denomination. Adapters must translate to actual provider/token precision. Use exact decimal or integer arithmetic, never JavaScript floating-point arithmetic for money.
+### ISO 4217 currency reference
+
+ISO 4217 defines a minor-unit exponent for every fiat currency — the number of decimal places between the major unit and its smallest sub-unit. All amounts are stored as integers in the minor unit and transmitted as strings in JSON. Never use floating-point arithmetic for money; use BigInt in TypeScript.
+
+| Currency | ISO code | ISO numeric | Exponent | Minor unit | 1 major unit = N minor units |
+|---|---|---|---|---|---|
+| Malawian Kwacha | MWK | 454 | 2 | tambala | 100 |
+| US Dollar | USD | 840 | 2 | cent | 100 |
+
+USDT is not an ISO 4217 currency. It is a USD-pegged stablecoin. The on-chain convention (TRC-20, ERC-20) uses 6 decimal places: 1 USDT = 1,000,000 units. This project follows that convention internally.
+
+| Token | Standard | Exponent | 1 token = N units |
+|---|---|---|---|
+| USDT | on-chain (TRC-20 / ERC-20) | 6 | 1,000,000 |
+
+### Demo simplification and production note
+
+The UI accepts whole-kwacha input (e.g. 204,000 MWK). The API layer converts to tambala before any storage or arithmetic: `amount_tambala = input × 100`. Internal storage is therefore ISO-correct (exponent 2) even though the UI hides sub-kwacha precision. This is a product convention for the demo and does not override the ISO standard.
+
+A production integration must accept tambala directly from providers and must not assume whole-kwacha input from external systems. Adapters must translate to actual provider/token precision.
+
+Represent monetary amounts as integer minor units and transmit them as JSON strings. Use exact integer arithmetic (BigInt in TypeScript), never JavaScript floating-point arithmetic for money.
 
 Store a currency on every account and entry. Suggested internal accounts include user MWK/USDT wallets, user USDT card funding, collection clearing, FX clearing per asset, fee revenue per asset, card settlement clearing, and simulated liquidity inventory.
 
