@@ -20,6 +20,7 @@ export function PageShell({ title, description, children }: PageShellProps) {
           <nav className="flex gap-3 text-sm text-stone-600">
             <Link href="/login">Sign in</Link>
             <Link href="/dashboard">Dashboard</Link>
+            <Link href="/analytics">Analytics</Link>
           </nav>
         </div>
       </header>

@@ -39,5 +39,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+/venv
 # Cursor MCP config (may contain personal access tokens)
 .cursor/mcp.json
