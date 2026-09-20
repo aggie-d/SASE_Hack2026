@@ -14,12 +14,14 @@ export default function DashboardPage() {
   const [mwkBalance, setMwkBalance] = useState("0.00");
   const [rawUsdtBalance, setRawUsdtBalance] = useState("0.00");
   const [rawCardFundingBalance, setRawCardFundingBalance] = useState("0.00");
-  const [cardNumber, setCardNumber] = useState("XXXX XXXX XXXX XXXX");
+  const [fullCardNumber, setFullCardNumber] = useState("XXXX XXXX XXXX XXXX");
+  const [cardLast4, setCardLast4] = useState<string>("XXXX");
+  const [cardCvv, setCardCvv] = useState<string>("321");
+  const [cardExp, setCardExp] = useState<string>("05/27");
 
   // Fund Modal States
   const [isFundModalOpen, setIsFundModalOpen] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [cardLast4, setCardLast4] = useState<string>("7597");
   const [availableMwkUnits, setAvailableMwkUnits] = useState<bigint>(0n);
   const [availableUsdtUnits, setAvailableUsdtUnits] = useState<bigint>(0n);
 
@@ -32,6 +34,13 @@ export default function DashboardPage() {
         const meData = (await meRes.json()) as MeResponse;
         userDisplayName = meData.display_name;
         setDisplayName(userDisplayName);
+
+        if (meData.card_details) {
+          setFullCardNumber(meData.card_details.card_number);
+          setCardLast4(meData.card_details.last4);
+          setCardCvv(meData.card_details.cvv);
+          setCardExp(meData.card_details.exp || "05/27");
+        }
       }
 
       // Fetch Wallets
@@ -62,7 +71,14 @@ export default function DashboardPage() {
           const card = cardsData.cards[0];
           setActiveCardId(card.card_id);
           setCardLast4(card.last4);
-          setCardNumber(card.masked_pan.replace(/•/g, "X"));
+          setFullCardNumber((prev) => {
+            const parts = prev.split(" ");
+            if (parts.length === 4) {
+              parts[3] = card.last4;
+              return parts.join(" ");
+            }
+            return prev;
+          });
         } else {
           // Auto-create virtual card if user doesn't have one
           const createRes = await fetch("/api/v1/cards", {
@@ -74,7 +90,14 @@ export default function DashboardPage() {
             const newCard = (await createRes.json()) as CardResponse;
             setActiveCardId(newCard.card_id);
             setCardLast4(newCard.last4);
-            setCardNumber(newCard.masked_pan.replace(/•/g, "X"));
+            setFullCardNumber((prev) => {
+              const parts = prev.split(" ");
+              if (parts.length === 4) {
+                parts[3] = newCard.last4;
+                return parts.join(" ");
+              }
+              return prev;
+            });
           }
         }
       }
@@ -283,7 +306,9 @@ export default function DashboardPage() {
             {/* Card Number */}
             <div className="relative z-10 py-1 lg:py-3 flex items-center justify-between mt-2 lg:mt-6">
               <span className="font-mono text-lg sm:text-xl lg:text-3xl xl:text-4xl font-bold tracking-[0.22em] lg:tracking-[0.25em] text-[#DFB338] select-none">
-                {showCardNumber ? cardNumber.replace(/X/g, "1") : cardNumber}
+                {showCardNumber
+                  ? fullCardNumber
+                  : `XXXX XXXX XXXX ${cardLast4}`}
               </span>
               <button
                 type="button"
@@ -312,7 +337,7 @@ export default function DashboardPage() {
                     EXP
                   </p>
                   <p className="font-mono font-bold text-white sm:text-sm lg:text-xl xl:text-2xl">
-                    05/27
+                    {cardExp}
                   </p>
                 </div>
                 <div>
@@ -320,7 +345,7 @@ export default function DashboardPage() {
                     CVV
                   </p>
                   <p className="font-mono font-bold text-white sm:text-sm lg:text-xl xl:text-2xl">
-                    321
+                    {cardCvv}
                   </p>
                 </div>
               </div>

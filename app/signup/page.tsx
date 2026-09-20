@@ -57,6 +57,15 @@ export default function Signup() {
     setError(null);
 
     const supabase = createClient();
+    
+    // Generate randomized virtual card details for the new account
+    const prefixes = ["4532", "4916", "5241", "5412", "4124", "5105"];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const mid1 = Math.floor(1000 + Math.random() * 9000).toString();
+    const mid2 = Math.floor(1000 + Math.random() * 9000).toString();
+    const last4 = Math.floor(1000 + Math.random() * 9000).toString();
+    const cvv = Math.floor(100 + Math.random() * 900).toString();
+
     const { error: signUpError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -65,6 +74,12 @@ export default function Signup() {
           display_name: formData.fullName,
           phone: formData.phone,
           country: formData.country,
+          card_details: {
+            card_number: `${prefix} ${mid1} ${mid2} ${last4}`,
+            last4,
+            cvv,
+            exp: "05/27",
+          },
         },
       },
     });

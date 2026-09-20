@@ -148,9 +148,7 @@ export default function DepositPage() {
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 mb-2">
             Deposit Funds
           </h1>
-          <p className="text-sm sm:text-base text-stone-600 max-w-md mx-auto">
-            Seamlessly add funds to your LADTransfer account to get started
-          </p>
+
         </div>
 
         {/* Deposit Card Container */}

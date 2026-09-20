@@ -547,7 +547,7 @@ export default function ProfilePage() {
                   <span className="text-xs font-mono font-extrabold px-1.5 py-0.5 rounded bg-slate-800 text-[#DFB338] border border-slate-700">
                     {countryInfo.code}
                   </span>
-                  <span>{countryInfo.flag}</span>
+                  
                   <span>{profileData.country}</span>
                 </p>
               </div>

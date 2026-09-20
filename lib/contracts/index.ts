@@ -125,6 +125,12 @@ export type MeResponse = {
   phone?: string;
   country?: string;
   currency?: string;
+  card_details?: {
+    card_number: string;
+    last4: string;
+    cvv: string;
+    exp: string;
+  };
 };
 
 /** PATCH /api/v1/me */
