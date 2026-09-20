@@ -224,6 +224,11 @@ export type CardResponse = {
   updated_at: string;
 };
 
+/** GET /api/v1/cards — every card the caller owns (0 or 1 in the demo). */
+export type CardsResponse = {
+  cards: CardResponse[];
+};
+
 /** POST /api/v1/cards/:id/fund (requires Idempotency-Key) */
 export type FundCardRequest = {
   /** Micro-USDT to move from usdt_wallet → card_funding. */

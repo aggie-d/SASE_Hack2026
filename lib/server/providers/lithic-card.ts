@@ -7,9 +7,19 @@ import type {
   UpdateProviderCardInput,
 } from "@/lib/server/providers/types";
 
+/**
+ * How Lithic-issued cards are labelled in API responses. Exported separately
+ * so read paths can label a card without constructing a client (which
+ * requires LITHIC_API_KEY).
+ */
+export const LITHIC_PROVIDER_IDENTITY = {
+  providerName: "lithic",
+  mode: "sandbox",
+} as const;
+
 export class LithicCardProvider implements CardProvider {
-  readonly providerName = "lithic";
-  readonly mode = "sandbox" as const;
+  readonly providerName = LITHIC_PROVIDER_IDENTITY.providerName;
+  readonly mode = LITHIC_PROVIDER_IDENTITY.mode;
 
   private readonly client: Lithic;
 

@@ -1,11 +1,11 @@
-import {
-    CURRENCY_META,
-    type CardResponse,
-    type CardStatus,
-    type UpdateCardRequest,
-  } from "@/lib/contracts";
-  import { parseMinorUnits } from "@/lib/contracts/money";
+import type { CardResponse, UpdateCardRequest } from "@/lib/contracts";
   import { requireVerifiedUser } from "@/lib/server/auth";
+  import {
+    CARD_COLUMNS,
+    getCardForUser,
+    toCardResponse,
+    type CardRow,
+  } from "@/lib/server/cards/service";
   import {
     ApiHttpError,
     field,
@@ -17,29 +17,23 @@ import {
   import { createLithicCardProvider } from "@/lib/server/providers/lithic-card";
   import { createAdminClient } from "@/lib/supabase/admin";
   
-  type CardRow = {
-    id: string;
-    user_id: string;
-    funding_account_id: string;
-    provider_card_id: string | null;
-    last4: string;
-    status: CardStatus;
-    per_transaction_limit_units: string | number | null;
-    created_at: string;
-    updated_at: string;
-  };
-  
-  const CARD_COLUMNS = [
-    "id",
-    "user_id",
-    "funding_account_id",
-    "provider_card_id",
-    "last4",
-    "status",
-    "per_transaction_limit_units",
-    "created_at",
-    "updated_at",
-  ].join(", ");
+  /**
+   * GET /api/v1/cards/:id
+   *
+   * Returns one of the authenticated user's cards. 404 if the id is unknown
+   * or belongs to someone else (never distinguishes the two).
+   */
+  export const GET = route(
+    async (
+      _req,
+      context: RouteContext<"/api/v1/cards/[id]">,
+    ) => {
+      const { userId } = await requireVerifiedUser();
+      const { id: cardId } = await context.params;
+      const card = await getCardForUser({ userId, cardId });
+      return ok<CardResponse>(card);
+    },
+  );
   
   /**
    * PATCH /api/v1/cards/:id
@@ -162,28 +156,8 @@ import {
         updatedCard.funding_account_id,
       );
   
-      const response: CardResponse = {
-        card_id: updatedCard.id,
-        status: updatedCard.status,
-        last4: updatedCard.last4,
-        masked_pan: `•••• •••• •••• ${updatedCard.last4}`,
-        per_transaction_limit:
-          updatedCard.per_transaction_limit_units === null
-            ? null
-            : {
-                asset: "USDT",
-                amount_units: parseMinorUnits(
-                  updatedCard.per_transaction_limit_units,
-                ).toString(),
-                exponent: CURRENCY_META.USDT.exponent,
-              },
-        funding,
-        provider: provider.providerName,
-        mode: provider.mode,
-        created_at: updatedCard.created_at,
-        updated_at: updatedCard.updated_at,
-      };
-  
-      return ok<CardResponse>(response);
+      return ok<CardResponse>(
+        toCardResponse(updatedCard, funding, provider),
+      );
     },
   );
