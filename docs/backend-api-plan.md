@@ -71,12 +71,15 @@ Every route below has its request/response type in `lib/contracts/index.ts`:
 | Route | Request type | Response type |
 |---|---|---|
 | `GET /me` | — | `MeResponse` |
+| `POST /me/verify` (demo mode only) | `VerifyMeRequest` (body optional) | `MeResponse` — simulated onboarding; flips the caller to `verified` |
 | `GET /wallets` | — | `WalletsResponse` |
 | `POST /deposits` | `CreateDepositRequest` | `DepositResponse` (202) |
 | `GET /deposits/:id` | — | `DepositResponse` |
 | `POST /quotes` | `CreateQuoteRequest` | `QuoteResponse` |
 | `POST /conversions` | `CreateConversionRequest` | `ConversionResponse` (200 or 202) |
 | `GET /conversions/:id` | — | `ConversionResponse` |
+| `GET /cards` | — | `CardsResponse` |
+| `GET /cards/:id` | — | `CardResponse` |
 | `POST /cards` | `CreateCardRequest` | `CardResponse` (201) |
 | `POST /cards/:id/fund` | `FundCardRequest` | `FundCardResponse` |
 | `PATCH /cards/:id` | `UpdateCardRequest` | `CardResponse` |
@@ -146,6 +149,7 @@ lib/server/ledger/
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/api/v1/me` | Return profile + verification status from `profiles` table |
+| `POST` | `/api/v1/me/verify` | **Demo mode only.** Simulated onboarding: sets the caller's `verification_status` to `verified` (optional `display_name`), writes an `audit_events` row. Signups land `unverified`, and quotes / conversions / cards / purchases all require `verified` — the Onboarding screen calls this. Idempotent. |
 | `GET` | `/api/v1/wallets` | Return all user accounts from `account_balances` view |
 
 ### Key helper
@@ -323,7 +327,7 @@ await postJournal({ operationId: auth.id, type: "card_capture", consumeHoldIds: 
 - Reuse the same `operationId` on every retry of the same business action. New UUID per attempt = double posting.
 - Do not read the `account_balances` view from the browser; it is `service_role` only. Use `GET /api/v1/wallets`.
 
-**Migrations.** `supabase/migrations/` is the full history and matches `supabase_migrations.schema_migrations` on the project exactly (versions `20260919201358` → `20260919215715`). New schema changes: apply via Supabase MCP `apply_migration`, then save the identical SQL as `supabase/migrations/<version>_<name>.sql` in the same PR.
+**Migrations.** `supabase/migrations/` is the full history and matches `supabase_migrations.schema_migrations` on the project exactly (versions `20260919201358` → `20260920201931`). New schema changes: apply via Supabase MCP `apply_migration`, then save the identical SQL as `supabase/migrations/<version>_<name>.sql` in the same PR.
 
 ---
 
