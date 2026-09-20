@@ -40,21 +40,59 @@ type ProfileRow = {
 /** Profile row for a user. Throws NOT_FOUND if the signup trigger has not created it. */
 export async function getProfile(userId: string): Promise<MeResponse> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("user_id, display_name, verification_status, role")
-    .eq("user_id", userId)
-    .maybeSingle<ProfileRow>();
+  const [{ data, error }, authUserRes] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("user_id, display_name, verification_status, role")
+      .eq("user_id", userId)
+      .maybeSingle<ProfileRow>(),
+    admin.auth.admin.getUserById(userId),
+  ]);
 
   if (error) throw error;
   if (!data) throw new ApiHttpError("NOT_FOUND", { message: "Profile not found for this user." });
+
+  const metadata = authUserRes.data?.user?.user_metadata || {};
 
   return {
     user_id: data.user_id,
     display_name: data.display_name,
     verification_status: data.verification_status,
     role: data.role,
+    phone: metadata.phone || undefined,
+    country: metadata.country || undefined,
+    currency: metadata.currency || undefined,
   };
+}
+
+/** Update profile in profiles table and user metadata */
+export async function updateProfile(
+  userId: string,
+  updates: { display_name?: string; phone?: string; country?: string; currency?: string }
+): Promise<MeResponse> {
+  const admin = createAdminClient();
+
+  if (updates.display_name && updates.display_name.trim()) {
+    const { error } = await admin
+      .from("profiles")
+      .update({ display_name: updates.display_name.trim() })
+      .eq("user_id", userId);
+    if (error) throw error;
+  }
+
+  const { data: userData } = await admin.auth.admin.getUserById(userId);
+  const currentMeta = userData?.user?.user_metadata || {};
+  const newMeta = {
+    ...currentMeta,
+    ...(updates.display_name ? { display_name: updates.display_name.trim() } : {}),
+    ...(updates.phone !== undefined ? { phone: updates.phone.trim() } : {}),
+    ...(updates.country !== undefined ? { country: updates.country.trim() } : {}),
+    ...(updates.currency !== undefined ? { currency: updates.currency.trim() } : {}),
+  };
+
+  await admin.auth.admin.updateUserById(userId, { user_metadata: newMeta });
+
+  return getProfile(userId);
 }
 
 /** requireUser + profiles.role = 'operator', else 403. For demo/operator routes (Workstream D). */

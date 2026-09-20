@@ -122,6 +122,17 @@ export type MeResponse = {
   display_name: string;
   verification_status: VerificationStatus;
   role: UserRole;
+  phone?: string;
+  country?: string;
+  currency?: string;
+};
+
+/** PATCH /api/v1/me */
+export type UpdateProfileRequest = {
+  display_name?: string;
+  phone?: string;
+  country?: string;
+  currency?: string;
 };
 
 /**
@@ -376,6 +387,51 @@ export type WebhookAckResponse = {
   received: true;
   event_id: string;
   duplicate: boolean;
+};
+
+// ─── Payment Methods ────────────────────────────────────────────────────────
+
+export type PaymentMethodType = "card" | "bank" | "mobile";
+
+export type PaymentMethodItem = {
+  id: string;
+  type: PaymentMethodType;
+  title: string;
+  subtitle: string;
+  icon_type: PaymentMethodType;
+  last4?: string;
+  cvv?: string;
+  created_at: string;
+};
+
+export type CreatePaymentMethodRequest = {
+  type: PaymentMethodType;
+  name: string;
+  number: string;
+  cvv?: string;
+};
+
+export type PaymentMethodsResponse = {
+  payment_methods: PaymentMethodItem[];
+};
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+export type NotificationType = "transfer" | "security" | "card" | "system" | "limit";
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: NotificationType;
+  is_unread: boolean;
+  created_at: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationItem[];
+  unread_count: number;
 };
 
 // ─── Errors ─────────────────────────────────────────────────────────────────

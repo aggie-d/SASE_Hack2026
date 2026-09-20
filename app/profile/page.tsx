@@ -15,10 +15,26 @@ import {
   Edit3, 
   Trash2,
   Lock,
-  LogOut
+  LogOut,
+  ChevronDown
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { createClient } from "@/lib/supabase/client";
+
+const CURRENCY_OPTIONS = [
+  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼" },
+  { code: "USD", name: "US Dollar", flag: "🇺🇸" },
+  { code: "USDT", name: "Tether USD (Stablecoin)", flag: "₮" },
+  { code: "EUR", name: "Euro", flag: "🇪🇺" },
+  { code: "GBP", name: "British Pound", flag: "🇬🇧" },
+  { code: "ZAR", name: "South African Rand", flag: "🇿🇦" },
+  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪" },
+  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬" },
+  { code: "INR", name: "Indian Rupee", flag: "🇮🇳" },
+  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵" },
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪" },
+  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬" },
+];
 
 type PaymentMethod = {
   id: string;
@@ -34,57 +50,19 @@ export default function ProfilePage() {
     name: "Loading...",
     email: "Loading...",
     accountId: "...",
-    phone: "N/A", // Handled by standard profile if available
-    country: "N/A",
+    phone: "Loading...",
+    country: "Malawi",
     currency: "MWK",
   });
   const [verificationStatus, setVerificationStatus] = useState<"unverified" | "pending" | "verified">("unverified");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isAddingMethod, setIsAddingMethod] = useState(false);
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   
-  useEffect(() => {
-    async function loadProfile() {
-      const supabase = createClient();
-      const { data: authData } = await supabase.auth.getUser();
-      const email = authData.user?.email || "No email found";
-
-      try {
-        const res = await fetch("/api/v1/me");
-        if (res.ok) {
-          const data = await res.json();
-          setProfileData(prev => ({
-            ...prev,
-            name: data.display_name,
-            email: email,
-            accountId: data.user_id,
-          }));
-          setVerificationStatus(data.verification_status);
-        }
-      } catch (err) {
-        console.error("Failed to load profile", err);
-      }
-    }
-    loadProfile();
-  }, []);
-
-  // Payment methods state (Requirement 3)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    {
-      id: "pm-1",
-      type: "card",
-      title: "Mastercard",
-      subtitle: "**** 1234",
-      iconType: "card",
-    },
-    {
-      id: "pm-2",
-      type: "bank",
-      title: "Malawi Savings Bank",
-      subtitle: "**** 5678",
-      iconType: "bank",
-    },
-  ]);
+  // Payment methods state
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
   // Modals state
   const [showAddMethodModal, setShowAddMethodModal] = useState(false);
@@ -95,8 +73,68 @@ export default function ProfilePage() {
   const [newMethodType, setNewMethodType] = useState<"card" | "bank" | "mobile">("card");
   const [newMethodName, setNewMethodName] = useState("");
   const [newMethodNumber, setNewMethodNumber] = useState("");
+  const [newMethodCvv, setNewMethodCvv] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      const email = authData.user?.email || "No email found";
+
+      try {
+        const [meRes, pmRes] = await Promise.all([
+          fetch("/api/v1/me"),
+          fetch("/api/v1/payment-methods"),
+        ]);
+
+        if (meRes.ok) {
+          const data = await meRes.json();
+          const loaded = {
+            name: data.display_name || "User",
+            email: email,
+            accountId: data.user_id,
+            phone: data.phone || "Not set",
+            country: data.country || "Malawi",
+            currency: data.currency || "MWK",
+          };
+          setProfileData(loaded);
+          setEditFormData(loaded);
+          setVerificationStatus(data.verification_status);
+        }
+
+        if (pmRes.ok) {
+          const pmData = await pmRes.json();
+          if (pmData.payment_methods) {
+            setPaymentMethods(
+              pmData.payment_methods.map((m: any) => ({
+                id: m.id,
+                type: m.type,
+                title: m.title,
+                subtitle: m.subtitle,
+                iconType: m.icon_type,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  // Compute dynamic initials
+  const userInitials =
+    profileData.name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
 
   // Handle Profile Picture Change (Requirement 4)
   const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -116,33 +154,98 @@ export default function ProfilePage() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const handleAddPaymentMethod = (e: React.FormEvent) => {
+  const handleAddPaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMethodName || !newMethodNumber) return;
 
-    const last4 = newMethodNumber.slice(-4) || "0000";
-    const newMethod: PaymentMethod = {
-      id: `pm-${Date.now()}`,
-      type: newMethodType,
-      title: newMethodName,
-      subtitle: `**** ${last4}`,
-      iconType: newMethodType,
-    };
+    setIsAddingMethod(true);
+    try {
+      const res = await fetch("/api/v1/payment-methods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: newMethodType,
+          name: newMethodName,
+          number: newMethodNumber,
+          cvv: newMethodType === "card" ? newMethodCvv : undefined,
+        }),
+      });
 
-    setPaymentMethods([...paymentMethods, newMethod]);
-    setShowAddMethodModal(false);
-    setNewMethodName("");
-    setNewMethodNumber("");
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentMethods(
+          data.payment_methods.map((m: any) => ({
+            id: m.id,
+            type: m.type,
+            title: m.title,
+            subtitle: m.subtitle,
+            iconType: m.icon_type,
+          }))
+        );
+        setShowAddMethodModal(false);
+        setNewMethodName("");
+        setNewMethodNumber("");
+        setNewMethodCvv("");
+      }
+    } catch (err) {
+      console.error("Failed to add payment method", err);
+    } finally {
+      setIsAddingMethod(false);
+    }
   };
 
-  const handleRemovePaymentMethod = (id: string) => {
-    setPaymentMethods(paymentMethods.filter((pm) => pm.id !== id));
+  const handleRemovePaymentMethod = async (id: string) => {
+    try {
+      const res = await fetch(`/api/v1/payment-methods?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentMethods(
+          data.payment_methods.map((m: any) => ({
+            id: m.id,
+            type: m.type,
+            title: m.title,
+            subtitle: m.subtitle,
+            iconType: m.icon_type,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to remove payment method", err);
+    }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProfileData({ ...editFormData });
-    setShowEditProfileModal(false);
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch("/api/v1/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          display_name: editFormData.name,
+          phone: editFormData.phone,
+          country: editFormData.country,
+          currency: editFormData.currency,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setProfileData((prev) => ({
+          ...prev,
+          name: updated.display_name,
+          phone: updated.phone || "Not set",
+          country: updated.country || "Malawi",
+          currency: updated.currency || "MWK",
+        }));
+        setShowEditProfileModal(false);
+      }
+    } catch (err) {
+      console.error("Failed to save profile", err);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
   const handleLogout = async () => {
     const supabase = createClient();
@@ -283,8 +386,8 @@ export default function ProfilePage() {
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-[#131F37] flex items-center justify-center text-4xl sm:text-5xl font-extrabold text-[#DFB338]">
-                      MW
+                    <div className="w-full h-full rounded-full bg-[#131F37] flex items-center justify-center text-4xl sm:text-5xl font-extrabold text-[#DFB338] select-none">
+                      {userInitials}
                     </div>
                   )}
                 </div>
@@ -555,27 +658,47 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Account / Card Number */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">
-                  {newMethodType === "card" ? "Card Number" : newMethodType === "bank" ? "Account Number" : "Phone Number"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newMethodNumber}
-                  onChange={(e) => setNewMethodNumber(e.target.value)}
-                  placeholder={newMethodType === "card" ? "XXXX XXXX XXXX 4321" : newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
-                  className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500"
-                />
+              {/* Account / Card Number + CVV Row */}
+              <div className={newMethodType === "card" ? "grid grid-cols-3 gap-3" : "space-y-1.5"}>
+                <div className={newMethodType === "card" ? "col-span-2 space-y-1.5" : "space-y-1.5"}>
+                  <label className="text-xs font-semibold text-slate-300">
+                    {newMethodType === "card" ? "Card Number" : newMethodType === "bank" ? "Account Number" : "Phone Number"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newMethodNumber}
+                    onChange={(e) => setNewMethodNumber(e.target.value)}
+                    placeholder={newMethodType === "card" ? "XXXX XXXX XXXX 4321" : newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
+                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono"
+                  />
+                </div>
+
+                {newMethodType === "card" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      CVV / CVC
+                    </label>
+                    <input
+                      type="password"
+                      maxLength={3}
+                      required
+                      value={newMethodCvv}
+                      onChange={(e) => setNewMethodCvv(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                      placeholder="123"
+                      className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="pt-3">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all active:scale-[0.99]"
+                  disabled={isAddingMethod}
+                  className="w-full py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all active:scale-[0.99] disabled:opacity-50"
                 >
-                  Save Payment Method
+                  {isAddingMethod ? "Saving Method..." : "Save Payment Method"}
                 </button>
               </div>
             </form>
@@ -633,21 +756,30 @@ export default function ProfilePage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300">Preferred Currency</label>
-                  <input
-                    type="text"
-                    value={editFormData.currency}
-                    onChange={(e) => setEditFormData({ ...editFormData, currency: e.target.value })}
-                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#DFB338]"
-                  />
+                  <div className="relative">
+                    <select
+                      value={editFormData.currency}
+                      onChange={(e) => setEditFormData({ ...editFormData, currency: e.target.value })}
+                      className="w-full appearance-none bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-2.5 pr-8 text-sm focus:outline-none focus:border-[#DFB338] cursor-pointer"
+                    >
+                      {CURRENCY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.code} className="bg-[#0B1528] text-white">
+                          {c.flag} {c.code} — {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
               <div className="pt-3">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all"
+                  disabled={isSavingProfile}
+                  className="w-full py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all disabled:opacity-50"
                 >
-                  Save Changes
+                  {isSavingProfile ? "Saving Changes..." : "Save Changes"}
                 </button>
               </div>
             </form>

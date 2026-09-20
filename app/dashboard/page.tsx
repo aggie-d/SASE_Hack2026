@@ -10,7 +10,9 @@ import type { WalletBalance, CardResponse, MeResponse, WalletsResponse, CardsRes
 export default function DashboardPage() {
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [displayName, setDisplayName] = useState("Loading...");
-  const [balance, setBalance] = useState("0.00");
+  const [mwkBalance, setMwkBalance] = useState("0.00");
+  const [rawUsdtBalance, setRawUsdtBalance] = useState("0.00");
+  const [rawCardFundingBalance, setRawCardFundingBalance] = useState("0.00");
   const [cardNumber, setCardNumber] = useState("XXXX XXXX XXXX XXXX");
 
   useEffect(() => {
@@ -19,28 +21,31 @@ export default function DashboardPage() {
         // Fetch User Profile
         const meRes = await fetch("/api/v1/me");
         if (meRes.ok) {
-          const meData = await meRes.json() as MeResponse;
+          const meData = (await meRes.json()) as MeResponse;
           setDisplayName(meData.display_name);
         }
 
         // Fetch Wallets
-        let totalUsdtUnits = 0n;
         const walletsRes = await fetch("/api/v1/wallets");
         if (walletsRes.ok) {
-          const walletsData = await walletsRes.json() as WalletsResponse;
-          const usdtWallet = walletsData.wallets.find(w => w.purpose === "usdt_wallet");
-          const cardWallet = walletsData.wallets.find(w => w.purpose === "card_funding");
-          
-          if (usdtWallet) totalUsdtUnits += parseMinorUnits(usdtWallet.available_units);
-          if (cardWallet) totalUsdtUnits += parseMinorUnits(cardWallet.available_units);
-          
-          setBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
+          const walletsData = (await walletsRes.json()) as WalletsResponse;
+          const mwkWallet = walletsData.wallets.find((w) => w.purpose === "mwk_wallet");
+          const usdtWallet = walletsData.wallets.find((w) => w.purpose === "usdt_wallet");
+          const cardWallet = walletsData.wallets.find((w) => w.purpose === "card_funding");
+
+          const totalMwkUnits = mwkWallet ? parseMinorUnits(mwkWallet.available_units) : 0n;
+          const totalUsdtUnits = usdtWallet ? parseMinorUnits(usdtWallet.available_units) : 0n;
+          const totalCardFundingUnits = cardWallet ? parseMinorUnits(cardWallet.available_units) : 0n;
+
+          setMwkBalance(formatMinorUnits(totalMwkUnits, "MWK", { code: false }));
+          setRawUsdtBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
+          setRawCardFundingBalance(formatMinorUnits(totalCardFundingUnits, "USDT", { code: false }));
         }
 
         // Fetch Cards
         const cardsRes = await fetch("/api/v1/cards");
         if (cardsRes.ok) {
-          const cardsData = await cardsRes.json() as CardsResponse;
+          const cardsData = (await cardsRes.json()) as CardsResponse;
           if (cardsData.cards && cardsData.cards.length > 0) {
             setCardNumber(cardsData.cards[0].masked_pan.replace(/•/g, "X"));
           }
@@ -49,7 +54,7 @@ export default function DashboardPage() {
         console.error("Failed to load dashboard data", err);
       }
     }
-    
+
     loadDashboardData();
   }, []);
 
@@ -166,7 +171,7 @@ export default function DashboardPage() {
       <main className="relative z-10 w-full max-w-7xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
         {/* Virtual Card Container — scales nicely on large screens */}
         <div
-          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] perspective-1000 mb-8 sm:mb-10 lg:mb-12"
+          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] perspective-1000 mb-5 sm:mb-6"
           style={{ animation: "wave-lift 0.9s ease-in-out 0.22s both" }}
         >
           <div 
@@ -218,13 +223,16 @@ export default function DashboardPage() {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 lg:w-5 h-full border-x border-black/30" />
               </div>
 
-              {/* Current Balance */}
-              <div className="text-right">
+              {/* Current Balance - strictly card funds */}
+              <div className="text-right select-none">
                 <p className="text-[10px] sm:text-xs lg:text-sm xl:text-base font-semibold uppercase tracking-wider text-[#DFB338]">
                   Current Balance
                 </p>
                 <p className="text-2xl sm:text-3xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight text-[#DFB338]">
-                  ${balance} <span className="text-sm sm:text-base lg:text-2xl xl:text-3xl font-bold text-white/90">USDT</span>
+                  ${rawCardFundingBalance}{" "}
+                  <span className="text-sm sm:text-base lg:text-2xl xl:text-3xl font-bold text-white/90">
+                    USD
+                  </span>
                 </p>
               </div>
             </div>
@@ -274,6 +282,37 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Wallet Balances Breakdown */}
+        <div 
+          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] grid grid-cols-3 gap-2.5 sm:gap-4 mb-5 sm:mb-6"
+          style={{ animation: "wave-lift 0.9s ease-in-out 0.32s both" }}
+        >
+          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+              MWK Wallet
+            </p>
+            <p className="text-xs sm:text-sm lg:text-base font-bold text-white mt-0.5 truncate">
+              {mwkBalance} <span className="text-[10px] text-slate-400">MWK</span>
+            </p>
+          </div>
+          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+              USDT Wallet
+            </p>
+            <p className="text-xs sm:text-sm lg:text-base font-bold text-teal-400 mt-0.5 truncate">
+              ${rawUsdtBalance} <span className="text-[10px] text-slate-400">USDT</span>
+            </p>
+          </div>
+          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Card Funds
+            </p>
+            <p className="text-xs sm:text-sm lg:text-base font-bold text-[#DFB338] mt-0.5 truncate">
+              ${rawCardFundingBalance} <span className="text-[10px] text-slate-400">USDT</span>
+            </p>
           </div>
         </div>
 

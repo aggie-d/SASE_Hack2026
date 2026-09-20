@@ -33,15 +33,25 @@ const spendingCategories = [
   },
 ];
 
+type TransactionViewItem = {
+  id?: string;
+  date: string;
+  merchant: string;
+  amount: string;
+  category: string;
+};
+
 export default function AnalyticsPage() {
-  const [recentTransactions, setRecentTransactions] = useState([
+  const [recentTransactions, setRecentTransactions] = useState<TransactionViewItem[]>([
     {
+      id: "tx-default-1",
       date: "Jul 29",
       merchant: "Verizon Wireless",
       amount: "-$115.40",
       category: "Phone Bill",
     },
     {
+      id: "tx-default-2",
       date: "Jul 28",
       merchant: "Safeway",
       amount: "-$98.15",

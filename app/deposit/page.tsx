@@ -322,28 +322,20 @@ export default function DepositPage() {
             </div>
 
             {/* Bottom Action Section */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => handleInterceptNavigation("/dashboard")}
-                className="text-xs font-semibold text-stone-500 hover:text-stone-900 hover:underline transition-colors order-2 sm:order-1"
-              >
-                Transaction History
-              </button>
-
+            <div className="pt-2 flex flex-col items-center gap-3">
               <button
                 type="submit"
-                className="w-full sm:w-auto flex-1 max-w-[220px] py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base order-1 sm:order-2 text-center"
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center"
               >
                 Deposit Funds
               </button>
 
               <button
                 type="button"
-                onClick={() => handleInterceptNavigation("/dashboard")}
-                className="text-xs font-semibold text-stone-500 hover:text-stone-900 hover:underline transition-colors order-3"
+                onClick={() => handleInterceptNavigation("/analytics")}
+                className="text-xs font-semibold text-stone-500 hover:text-stone-900 hover:underline transition-colors"
               >
-                Deposit Limits
+                Recent History
               </button>
             </div>
           </form>

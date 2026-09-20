@@ -1,81 +1,106 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { ArrowDownLeft, ShieldAlert, Bell, BellOff, CheckCircle2, AlertTriangle } from "lucide-react";
-
-import { LucideIcon } from "lucide-react";
-
-type Notification = {
-  id: number;
-  title: string;
-  message: string;
-  time: string;
-  icon: LucideIcon;
-  iconColor: string;
-  bgColor: string;
-  borderColor: string;
-  isUnread: boolean;
-};
-
-const notifications: Notification[] = [
-  // {
-  //   id: 1,
-  //   title: "Transfer Received",
-  //   message: "You received +$250.00 USD from John Doe.",
-  //   time: "2 minutes ago",
-  //   icon: ArrowDownLeft,
-  //   iconColor: "text-emerald-400",
-  //   bgColor: "bg-emerald-400/10",
-  //   borderColor: "border-emerald-500/20",
-  //   isUnread: true,
-  // },
-  // {
-  //   id: 2,
-  //   title: "Security Alert",
-  //   message: "New device logged into your account from Blantyre, MW.",
-  //   time: "1 hour ago",
-  //   icon: ShieldAlert,
-  //   iconColor: "text-red-400",
-  //   bgColor: "bg-red-400/10",
-  //   borderColor: "border-red-500/20",
-  //   isUnread: true,
-  // },
-  // {
-  //   id: 3,
-  //   title: "Virtual Card Activated",
-  //   message: "Your LADTransfer virtual card is now ready for online purchases.",
-  //   time: "Yesterday",
-  //   icon: CheckCircle2,
-  //   iconColor: "text-[#DFB338]",
-  //   bgColor: "bg-[#DFB338]/10",
-  //   borderColor: "border-[#DFB338]/20",
-  //   isUnread: false,
-  // },
-  // {
-  //   id: 4,
-  //   title: "System Maintenance",
-  //   message: "Scheduled maintenance will occur on Sunday at 2:00 AM CAT.",
-  //   time: "2 days ago",
-  //   icon: Bell,
-  //   iconColor: "text-blue-400",
-  //   bgColor: "bg-blue-400/10",
-  //   borderColor: "border-blue-500/20",
-  //   isUnread: false,
-  // },
-  // {
-  //   id: 5,
-  //   title: "Spending Limit Approaching",
-  //   message: "You have used 90% of your monthly conversion limit.",
-  //   time: "3 days ago",
-  //   icon: AlertTriangle,
-  //   iconColor: "text-amber-400",
-  //   bgColor: "bg-amber-400/10",
-  //   borderColor: "border-amber-500/20",
-  //   isUnread: false,
-  // }
-];
+import { ArrowDownLeft, ShieldAlert, Bell, BellOff, CheckCircle2, AlertTriangle, CheckCheck } from "lucide-react";
+import type { NotificationItem, NotificationsResponse } from "@/lib/contracts";
 
 export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/v1/notifications");
+        if (res.ok) {
+          const data = (await res.json()) as NotificationsResponse;
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unread_count || 0);
+        }
+      } catch (err) {
+        console.error("Failed to load notifications", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadNotifications();
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await fetch("/api/v1/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mark_all_read: true }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as NotificationsResponse;
+        setNotifications(data.notifications);
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Failed to mark all as read", err);
+    }
+  };
+
+  const handleMarkSingleRead = async (id: string) => {
+    try {
+      const res = await fetch("/api/v1/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as NotificationsResponse;
+        setNotifications(data.notifications);
+        setUnreadCount(data.unread_count);
+      }
+    } catch (err) {
+      console.error("Failed to mark notification as read", err);
+    }
+  };
+
+  const getIconConfig = (type: string) => {
+    switch (type) {
+      case "transfer":
+        return {
+          Icon: ArrowDownLeft,
+          iconColor: "text-emerald-400",
+          bgColor: "bg-emerald-400/10",
+          borderColor: "border-emerald-500/20",
+        };
+      case "security":
+        return {
+          Icon: ShieldAlert,
+          iconColor: "text-red-400",
+          bgColor: "bg-red-400/10",
+          borderColor: "border-red-500/20",
+        };
+      case "card":
+        return {
+          Icon: CheckCircle2,
+          iconColor: "text-[#DFB338]",
+          bgColor: "bg-[#DFB338]/10",
+          borderColor: "border-[#DFB338]/20",
+        };
+      case "limit":
+        return {
+          Icon: AlertTriangle,
+          iconColor: "text-amber-400",
+          bgColor: "bg-amber-400/10",
+          borderColor: "border-amber-500/20",
+        };
+      default:
+        return {
+          Icon: Bell,
+          iconColor: "text-blue-400",
+          bgColor: "bg-blue-400/10",
+          borderColor: "border-blue-500/20",
+        };
+    }
+  };
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
       {/* Background: Animated Dot-Matrix Wave — 24 narrow strips for a smooth sine-wave sweep */}
@@ -189,12 +214,28 @@ export default function NotificationsPage() {
       <main className="relative z-10 w-full max-w-5xl xl:max-w-6xl mx-auto flex-1 flex flex-col items-center px-4 py-8 sm:py-10">
         <div className="w-full">
           <div 
-            className="mb-8"
+            className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             style={{ animation: "wave-lift 0.9s ease-in-out 0.15s both" }}
           >
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B1528] tracking-tight text-center">
-              Notifications
-            </h1>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0B1528] tracking-tight">
+                Notifications
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Stay updated with your transactions and account alerts
+              </p>
+            </div>
+
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 border border-blue-500/20 text-xs font-semibold transition-colors"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Mark all as read</span>
+              </button>
+            )}
           </div>
 
           <div className="w-full space-y-4">
@@ -218,28 +259,29 @@ export default function NotificationsPage() {
               </div>
             ) : (
               notifications.map((notification, index) => {
-                const Icon = notification.icon;
+                const { Icon, iconColor, bgColor, borderColor } = getIconConfig(notification.type);
                 return (
                   <div
                     key={notification.id}
-                    className={`bg-[#0B1528] rounded-2xl p-5 shadow-lg border relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${
-                      notification.isUnread ? "border-blue-500/50" : "border-slate-800"
+                    onClick={() => notification.is_unread && handleMarkSingleRead(notification.id)}
+                    className={`bg-[#0B1528] rounded-2xl p-5 shadow-lg border relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer ${
+                      notification.is_unread ? "border-blue-500/50" : "border-slate-800"
                     }`}
                     style={{ animation: `wave-lift 0.9s ease-in-out ${0.2 + index * 0.08}s both` }}
                   >
                     {/* Unread indicator dot */}
-                    {notification.isUnread && (
+                    {notification.is_unread && (
                       <div className="absolute top-1/2 left-2.5 -translate-y-1/2 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
                     )}
                     
-                    <div className={`flex items-start gap-4 ${notification.isUnread ? "ml-3" : ""}`}>
-                      <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border ${notification.bgColor} ${notification.borderColor}`}>
-                        <Icon className={`w-6 h-6 ${notification.iconColor}`} />
+                    <div className={`flex items-start gap-4 ${notification.is_unread ? "ml-3" : ""}`}>
+                      <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border ${bgColor} ${borderColor}`}>
+                        <Icon className={`w-6 h-6 ${iconColor}`} />
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <h3 className={`text-base font-bold truncate ${notification.isUnread ? "text-white" : "text-slate-200"}`}>
+                          <h3 className={`text-base font-bold truncate ${notification.is_unread ? "text-white" : "text-slate-200"}`}>
                             {notification.title}
                           </h3>
                           <span className="text-xs font-medium text-slate-500 whitespace-nowrap">
