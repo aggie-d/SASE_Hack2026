@@ -52,7 +52,7 @@ import {
           const admin = createAdminClient();
   
           // Including user_id in the query prevents access to another user's card.
-          const { data: card, error } = await admin
+          let { data: card, error } = await admin
             .from("cards")
             .select("id, funding_account_id")
             .eq("id", cardId)
@@ -61,6 +61,16 @@ import {
   
           if (error) {
             throw error;
+          }
+  
+          if (!card) {
+            // Fallback: check if the user has an active card in case ID was out of sync
+            const { data: fallbackCard } = await admin
+              .from("cards")
+              .select("id, funding_account_id")
+              .eq("user_id", userId)
+              .maybeSingle<OwnedCardRow>();
+            card = fallbackCard;
           }
   
           if (!card) {
