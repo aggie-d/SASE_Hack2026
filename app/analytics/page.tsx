@@ -233,34 +233,34 @@ export default function AnalyticsPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Spending Categories Card */}
             <div 
-              className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white"
+              className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white flex flex-col h-[420px] sm:h-[350px]"
               style={{ animation: "wave-lift 0.9s ease-in-out 0.30s both" }}
             >
-              <h2 className="text-base sm:text-lg font-bold text-white">
+              <h2 className="text-base sm:text-lg font-bold text-white shrink-0">
                 Monthly Spending Categorization
               </h2>
 
-              <div className="mt-6 flex flex-col items-center gap-7 sm:flex-row">
+              <div className="mt-4 sm:mt-6 flex-1 flex flex-col items-center justify-center gap-6 sm:gap-7 sm:flex-row">
                 <div
                   aria-label="Monthly spending donut chart"
-                  className="relative h-44 w-44 shrink-0 rounded-full"
+                  className="relative h-36 w-36 sm:h-44 sm:w-44 shrink-0 rounded-full"
                   style={{
                     background:
                       "conic-gradient(#DFB338 0% 38%, #60a5fa 38% 60%, #0066FF 60% 76%, #C9A227 76% 90%, #0b4f93 90% 100%)",
                   }}
                 >
-                  <div className="absolute inset-12 rounded-full bg-[#0B1528]" />
+                  <div className="absolute inset-10 sm:inset-12 rounded-full bg-[#0B1528]" />
                 </div>
 
-                <ul className="w-full space-y-3">
+                <ul className="w-full space-y-2.5 sm:space-y-3">
                   {spendingCategories.map((category) => (
                     <li
                       key={category.name}
-                      className="flex items-center justify-between gap-3 text-sm"
+                      className="flex items-center justify-between gap-3 text-xs sm:text-sm"
                     >
                       <span className="flex items-center gap-2">
                         <span
-                          className="h-3 w-3 shrink-0 rounded-full"
+                          className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 rounded-full"
                           style={{ backgroundColor: category.color }}
                         />
                         <span className="text-slate-300">{category.name}</span>
@@ -277,38 +277,48 @@ export default function AnalyticsPage() {
 
             {/* Recent Transactions Card */}
             <div 
-              className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white"
+              className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white flex flex-col h-[420px] sm:h-[350px]"
               style={{ animation: "wave-lift 0.9s ease-in-out 0.38s both" }}
             >
-              <h2 className="text-base sm:text-lg font-bold text-white">
-                Recent Transactions
-              </h2>
+              <div className="flex items-center justify-between shrink-0">
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  Recent Transactions
+                </h2>
+                <span className="text-xs text-slate-400 font-medium">
+                  {recentTransactions.length} {recentTransactions.length === 1 ? "item" : "items"}
+                </span>
+              </div>
 
+              <div className="mt-4 divide-y divide-slate-700/60 overflow-y-auto flex-1 pr-1.5 custom-scrollbar">
+                {recentTransactions.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-500 py-8">
+                    No transactions recorded yet
+                  </div>
+                ) : (
+                  recentTransactions.map((transaction, i) => (
+                    <article
+                      key={transaction.id || `${transaction.date}-${transaction.merchant}-${i}`}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3"
+                    >
+                      <time className="text-xs text-slate-500 font-medium shrink-0 w-12">
+                        {transaction.date}
+                      </time>
 
-              <div className="mt-4 divide-y divide-slate-700/60">
-                {recentTransactions.map((transaction, i) => (
-                  <article
-                    key={transaction.id || `${transaction.date}-${transaction.merchant}-${i}`}
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3"
-                  >
-                    <time className="text-xs text-slate-500 font-medium">
-                      {transaction.date}
-                    </time>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">
+                          {transaction.merchant}
+                        </p>
+                        <p className="text-xs text-[#DFB338] truncate">
+                          {transaction.category}
+                        </p>
+                      </div>
 
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">
-                        {transaction.merchant}
+                      <p className="text-sm font-semibold text-[#DFB338] shrink-0 text-right">
+                        {transaction.amount}
                       </p>
-                      <p className="text-xs text-[#DFB338]">
-                        {transaction.category}
-                      </p>
-                    </div>
-
-                    <p className="text-sm font-semibold text-[#DFB338]">
-                      {transaction.amount}
-                    </p>
-                  </article>
-                ))}
+                    </article>
+                  ))
+                )}
               </div>
             </div>
           </div>
