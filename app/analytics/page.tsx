@@ -186,7 +186,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Main Content Area */}
-      <main className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col items-center px-4 py-8 sm:py-10">
+      <main className="relative z-10 w-full max-w-6xl xl:max-w-7xl mx-auto flex-1 flex flex-col items-center px-4 py-8 sm:py-10">
         <div className="w-full space-y-6">
 
           {/* Monthly Expense Summary Card */}

@@ -119,19 +119,122 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
-      {/* Subtle Background Glows */}
-      <div className="absolute top-0 left-1/3 w-[600px] h-[350px] bg-blue-500/[0.06] rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[#C9A227]/[0.07] rounded-full blur-[140px] pointer-events-none" />
+      {/* Background: Animated Dot-Matrix Wave — 24 narrow strips for a smooth sine-wave sweep */}
+      {Array.from({ length: 24 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: `${(i * 100) / 24}%`,
+            width: `${100 / 24}%`,
+            backgroundImage: "radial-gradient(#475569 2px, transparent 2px)",
+            backgroundSize: "26px 26px",
+            backgroundAttachment: "fixed",
+            opacity: 0.5,
+            animation: `dot-wave 0.8s ease-in-out ${(i * 0.035).toFixed(3)}s`,
+          }}
+        />
+      ))}
+
+      {/* Soft Ambient Glows */}
+      <div
+        className="absolute top-0 left-1/4 w-[500px] h-[350px] bg-blue-400/10 rounded-full blur-[130px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.1s both" }}
+      />
+      <div
+        className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[#C9A227]/10 rounded-full blur-[140px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.35s both" }}
+      />
+
+      {/* Circuit Tech Lines */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.15s both" }}
+      >
+        <path d="M0,150 L200,150 L260,210 L500,210" fill="none" stroke="#0066FF" strokeWidth="1.5" strokeDasharray="4 4" />
+        <circle cx="260" cy="210" r="3.5" fill="#0066FF" />
+        <path d="M1000,600 L1200,600 L1260,540 L1600,540" fill="none" stroke="#C9A227" strokeWidth="1.5" strokeDasharray="4 4" />
+        <circle cx="1260" cy="540" r="3.5" fill="#C9A227" />
+        <circle cx="200" cy="150" r="2.5" fill="#0066FF" />
+      </svg>
+
+      {/* Floating Light Wisps */}
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "18%",
+          left: "12%",
+          width: "80px",
+          height: "80px",
+          background: "rgba(96, 165, 250, 0.35)",
+          filter: "blur(40px)",
+          animation: "wisp-drift-1 12s ease-in-out 1.5s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "65%",
+          right: "10%",
+          width: "100px",
+          height: "100px",
+          background: "rgba(201, 162, 39, 0.3)",
+          filter: "blur(45px)",
+          animation: "wisp-drift-2 15s ease-in-out 2s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "40%",
+          left: "55%",
+          width: "60px",
+          height: "60px",
+          background: "rgba(96, 165, 250, 0.25)",
+          filter: "blur(35px)",
+          animation: "wisp-drift-3 10s ease-in-out 1.8s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "75%",
+          left: "30%",
+          width: "70px",
+          height: "70px",
+          background: "rgba(201, 162, 39, 0.25)",
+          filter: "blur(40px)",
+          animation: "wisp-drift-4 13s ease-in-out 2.2s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "25%",
+          right: "25%",
+          width: "90px",
+          height: "90px",
+          background: "rgba(96, 165, 250, 0.2)",
+          filter: "blur(50px)",
+          animation: "wisp-drift-1 14s ease-in-out 2.5s infinite",
+        }}
+      />
 
       {/* Consistent Top Navigation Header */}
-      <AppHeader active="profile" />
+      <div style={{ animation: "wave-lift 0.9s ease-in-out 0.08s both" }}>
+        <AppHeader active="profile" />
+      </div>
 
       {/* Main Content Area */}
-      <main className="relative z-10 w-full max-w-4xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-10">
+      <main className="relative z-10 w-full max-w-6xl xl:max-w-7xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-10">
         <div className="w-full space-y-6">
           
           {/* Top Profile Summary Card */}
-          <div className="bg-[#0B1528] rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 text-white relative overflow-hidden">
+          <div 
+            className="bg-[#0B1528] rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 text-white relative overflow-hidden"
+            style={{ animation: "wave-lift 0.9s ease-in-out 0.22s both" }}
+          >
             {/* Subtle card glow */}
             <div className="absolute -top-24 right-10 w-64 h-64 bg-[#C9A227]/10 rounded-full blur-[70px] pointer-events-none" />
 
@@ -185,10 +288,26 @@ export default function ProfilePage() {
                     </p>
                   </div>
 
-                  {/* Account Status Badge */}
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold self-center sm:self-start shadow-sm">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>Account status: Verified</span>
+                  {/* Actions Column: Status Badge & Edit Button */}
+                  <div className="flex flex-col gap-2 self-center sm:self-start">
+                    {/* Account Status Badge */}
+                    <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-sm w-full sm:w-auto">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Account status: Verified</span>
+                    </div>
+
+                    {/* Edit Profile CTA (Moved up here) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditFormData({ ...profileData });
+                        setShowEditProfileModal(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 text-slate-200 hover:text-white transition-all text-xs font-semibold shadow-sm w-full sm:w-auto"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
+                    </button>
                   </div>
                 </div>
 
@@ -211,7 +330,10 @@ export default function ProfilePage() {
           </div>
 
           {/* Details Row: Phone, Country, Preferred Currency */}
-          <div className="bg-[#0B1528] rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-800 text-white">
+          <div 
+            className="bg-[#0B1528] rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-800 text-white"
+            style={{ animation: "wave-lift 0.9s ease-in-out 0.30s both" }}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/80 text-center sm:text-left gap-4 sm:gap-0">
               {/* Phone Number */}
               <div className="sm:px-6 py-2">
@@ -247,7 +369,10 @@ export default function ProfilePage() {
           </div>
 
           {/* Linked Payment Methods (Requirement 3: With Button to Link New Method) */}
-          <div className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white">
+          <div 
+            className="bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 text-white"
+            style={{ animation: "wave-lift 0.9s ease-in-out 0.38s both" }}
+          >
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800/80">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-white">
@@ -300,26 +425,14 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
-
-          {/* Bottom Action: Edit Profile CTA */}
-          <div className="flex justify-center pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEditFormData({ ...profileData });
-                setShowEditProfileModal(true);
-              }}
-              className="w-full sm:w-auto min-w-[220px] py-3.5 px-8 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] hover:from-[#e5bc42] hover:to-[#c49a21] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] active:scale-[0.99] transition-all text-base flex items-center justify-center gap-2"
-            >
-              <Edit3 className="w-4 h-4" />
-              <span>Edit Profile</span>
-            </button>
-          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 py-5 text-center text-xs text-stone-400">
+      <footer 
+        className="relative z-10 py-5 text-center text-xs text-stone-400"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.45s both" }}
+      >
         <p>© 2026 LADTransfer. All rights reserved.</p>
       </footer>
 

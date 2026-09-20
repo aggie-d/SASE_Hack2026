@@ -3,7 +3,21 @@
 import { AppHeader } from "@/components/AppHeader";
 import { ArrowDownLeft, ShieldAlert, Bell, BellOff, CheckCircle2, AlertTriangle } from "lucide-react";
 
-const notifications = [
+import { LucideIcon } from "lucide-react";
+
+type Notification = {
+  id: number;
+  title: string;
+  message: string;
+  time: string;
+  icon: LucideIcon;
+  iconColor: string;
+  bgColor: string;
+  borderColor: string;
+  isUnread: boolean;
+};
+
+const notifications: Notification[] = [
   // {
   //   id: 1,
   //   title: "Transfer Received",
@@ -172,7 +186,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Main Content Area */}
-      <main className="relative z-10 w-full max-w-3xl mx-auto flex-1 flex flex-col items-center px-4 py-8 sm:py-10">
+      <main className="relative z-10 w-full max-w-5xl xl:max-w-6xl mx-auto flex-1 flex flex-col items-center px-4 py-8 sm:py-10">
         <div className="w-full">
           <div 
             className="mb-8"
