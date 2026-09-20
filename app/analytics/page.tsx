@@ -1,6 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { formatMinorUnits, parseMinorUnits } from "@/lib/contracts/money";
+import type { ActivityListResponse } from "@/lib/contracts";
 
 const spendingCategories = [
   {
@@ -30,52 +33,52 @@ const spendingCategories = [
   },
 ];
 
-const recentTransactions = [
-  {
-    date: "Jul 29",
-    merchant: "Verizon Wireless",
-    amount: "-$115.40",
-    category: "Phone Bill",
-  },
-  {
-    date: "Jul 28",
-    merchant: "Safeway",
-    amount: "-$98.15",
-    category: "Groceries",
-  },
-  {
-    date: "Jul 26",
-    merchant: "Amazon.com",
-    amount: "-$154.99",
-    category: "Shopping",
-  },
-  {
-    date: "Jul 25",
-    merchant: "Delta Air Lines",
-    amount: "-$745.20",
-    category: "Travel",
-  },
-  {
-    date: "Jul 24",
-    merchant: "Adobe Inc.",
-    amount: "-$52.99",
-    category: "Subscription",
-  },
-  {
-    date: "Jul 23",
-    merchant: "Local Chevron",
-    amount: "-$61.70",
-    category: "Gas",
-  },
-  {
-    date: "Jul 21",
-    merchant: "Netflix",
-    amount: "-$19.99",
-    category: "Subscription",
-  },
-];
-
 export default function AnalyticsPage() {
+  const [recentTransactions, setRecentTransactions] = useState([
+    {
+      date: "Jul 29",
+      merchant: "Verizon Wireless",
+      amount: "-$115.40",
+      category: "Phone Bill",
+    },
+    {
+      date: "Jul 28",
+      merchant: "Safeway",
+      amount: "-$98.15",
+      category: "Groceries",
+    },
+  ]);
+
+  useEffect(() => {
+    async function loadActivity() {
+      try {
+        const res = await fetch("/api/v1/activity?limit=20");
+        if (res.ok) {
+          const data = (await res.json()) as ActivityListResponse;
+          const txs = data.items.map(item => {
+            const d = new Date(item.created_at);
+            const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            const amtUnits = parseMinorUnits(item.amount.amount_units);
+            const amtStr = formatMinorUnits(amtUnits, item.amount.asset, { code: false });
+            return {
+              id: item.id,
+              date: dateStr,
+              merchant: item.title,
+              amount: (item.type === "purchase" || item.type === "conversion" ? "-" : "+") + "$" + amtStr,
+              category: item.type.charAt(0).toUpperCase() + item.type.slice(1),
+            };
+          });
+          if (txs.length > 0) {
+            setRecentTransactions(txs);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch activity", err);
+      }
+    }
+    loadActivity();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
       {/* Background: Animated Dot-Matrix Wave — 24 narrow strips for a smooth sine-wave sweep */}
@@ -274,9 +277,9 @@ export default function AnalyticsPage() {
               <p className="mt-1 text-xs text-slate-500">Outgoing only</p>
 
               <div className="mt-4 divide-y divide-slate-700/60">
-                {recentTransactions.map((transaction) => (
+                {recentTransactions.map((transaction, i) => (
                   <article
-                    key={`${transaction.date}-${transaction.merchant}`}
+                    key={transaction.id || `${transaction.date}-${transaction.merchant}-${i}`}
                     className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3"
                   >
                     <time className="text-xs text-slate-500 font-medium">

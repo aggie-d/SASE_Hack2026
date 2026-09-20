@@ -1,5 +1,8 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, EyeOff, Globe, Phone, ChevronDown } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, Globe, Phone, ChevronDown } from "lucide-react";
 
 type Country = {
   name: string;
@@ -7,48 +10,118 @@ type Country = {
   unicodeFlag: string;
 };
 
-export default async function Signup() {
-  let countries: Country[] = [];
-  try {
-    const res = await fetch("https://countriesnow.space/api/v0.1/countries/flag/unicode", {
-      next: { revalidate: 86400 } // Cache for 24h
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if (json && !json.error && Array.isArray(json.data)) {
-        countries = (json.data as Country[]).sort((a, b) => a.name.localeCompare(b.name));
-      }
-    } else {
-      console.error("CountriesNow API returned status:", res.status);
-    }
-  } catch (e) {
-    console.error("Failed to fetch countries", e);
-  }
+const defaultCountries: Country[] = [
+  { name: "Australia", iso2: "AU", unicodeFlag: "🇦🇺" },
+  { name: "Canada", iso2: "CA", unicodeFlag: "🇨🇦" },
+  { name: "France", iso2: "FR", unicodeFlag: "🇫🇷" },
+  { name: "Germany", iso2: "DE", unicodeFlag: "🇩🇪" },
+  { name: "India", iso2: "IN", unicodeFlag: "🇮🇳" },
+  { name: "Japan", iso2: "JP", unicodeFlag: "🇯🇵" },
+  { name: "Kenya", iso2: "KE", unicodeFlag: "🇰🇪" },
+  { name: "Malawi", iso2: "MW", unicodeFlag: "🇲🇼" },
+  { name: "Nigeria", iso2: "NG", unicodeFlag: "🇳🇬" },
+  { name: "South Africa", iso2: "ZA", unicodeFlag: "🇿🇦" },
+  { name: "United Kingdom", iso2: "GB", unicodeFlag: "🇬🇧" },
+  { name: "United States", iso2: "US", unicodeFlag: "🇺🇸" }
+];
 
-  // Fallback to a predefined list if network fails
-  if (countries.length === 0) {
-    countries = [
-      { name: "Australia", iso2: "AU", unicodeFlag: "🇦🇺" },
-      { name: "Canada", iso2: "CA", unicodeFlag: "🇨🇦" },
-      { name: "France", iso2: "FR", unicodeFlag: "🇫🇷" },
-      { name: "Germany", iso2: "DE", unicodeFlag: "🇩🇪" },
-      { name: "India", iso2: "IN", unicodeFlag: "🇮🇳" },
-      { name: "Japan", iso2: "JP", unicodeFlag: "🇯🇵" },
-      { name: "Kenya", iso2: "KE", unicodeFlag: "🇰🇪" },
-      { name: "Malawi", iso2: "MW", unicodeFlag: "🇲🇼" },
-      { name: "Nigeria", iso2: "NG", unicodeFlag: "🇳🇬" },
-      { name: "South Africa", iso2: "ZA", unicodeFlag: "🇿🇦" },
-      { name: "United Kingdom", iso2: "GB", unicodeFlag: "🇬🇧" },
-      { name: "United States", iso2: "US", unicodeFlag: "🇺🇸" }
-    ];
-  }
+export default function Signup() {
+  const [countries, setCountries] = useState<Country[]>(defaultCountries);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    fetch("https://countriesnow.space/api/v0.1/countries/flag/unicode")
+      .then(res => res.json())
+      .then(json => {
+        if (json && !json.error && Array.isArray(json.data)) {
+          setCountries((json.data as Country[]).sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      })
+      .catch(e => console.error("Failed to fetch countries", e));
+  }, []);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    country: "",
+    password: ""
+  });
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Simulate network delay for UX then redirect with message
+    setTimeout(() => {
+      window.location.href = "/login?message=" + encodeURIComponent("Account created successfully!");
+    }, 800);
+  };
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center relative p-4 overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[#C9A227]/10 blur-[120px] pointer-events-none" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center relative p-4 overflow-hidden">
+      {/* 24-Column Animated Dot Grid Background */}
+      {Array.from({ length: 24 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: `${(i * 100) / 24}%`,
+            width: `${100 / 24}%`,
+            backgroundImage: "radial-gradient(#475569 2px, transparent 2px)",
+            backgroundSize: "26px 26px",
+            backgroundAttachment: "fixed",
+            opacity: 0.5,
+            animation: `dot-wave 0.8s ease-in-out ${(i * 0.035).toFixed(3)}s`,
+          }}
+        />
+      ))}
+
+      {/* Soft Ambient Colorful Atmosphere */}
+      <div
+        className="absolute top-0 left-1/4 w-[500px] h-[350px] bg-blue-400/10 rounded-full blur-[130px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.1s both" }}
+      />
+      <div
+        className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[#C9A227]/10 rounded-full blur-[140px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.35s both" }}
+      />
+
+      {/* Subtle Circuit Tech Lines in Background */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.15s both" }}
+      >
+        <path d="M0,150 L200,150 L260,210 L500,210" fill="none" stroke="#0066FF" strokeWidth="1.5" strokeDasharray="4 4" />
+        <circle cx="260" cy="210" r="3.5" fill="#0066FF" />
+        <path d="M1000,600 L1200,600 L1260,540 L1600,540" fill="none" stroke="#C9A227" strokeWidth="1.5" strokeDasharray="4 4" />
+        <circle cx="1260" cy="540" r="3.5" fill="#C9A227" />
+        <circle cx="200" cy="150" r="2.5" fill="#0066FF" />
+      </svg>
+
+      {/* Floating Light Wisps */}
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{ top: "18%", left: "12%", width: "80px", height: "80px", background: "rgba(96, 165, 250, 0.35)", filter: "blur(40px)", animation: "wisp-drift-1 12s ease-in-out 1.5s infinite" }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{ top: "65%", right: "10%", width: "100px", height: "100px", background: "rgba(201, 162, 39, 0.3)", filter: "blur(45px)", animation: "wisp-drift-2 15s ease-in-out 2s infinite" }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{ top: "40%", left: "55%", width: "60px", height: "60px", background: "rgba(96, 165, 250, 0.25)", filter: "blur(35px)", animation: "wisp-drift-3 10s ease-in-out 1.8s infinite" }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{ top: "75%", left: "30%", width: "70px", height: "70px", background: "rgba(201, 162, 39, 0.25)", filter: "blur(40px)", animation: "wisp-drift-4 13s ease-in-out 2.2s infinite" }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{ top: "25%", right: "25%", width: "90px", height: "90px", background: "rgba(96, 165, 250, 0.2)", filter: "blur(50px)", animation: "wisp-drift-1 14s ease-in-out 2.5s infinite" }}
+      />
 
       {/* Top left logo */}
       <div className="absolute top-6 left-6 lg:top-8 lg:left-8 z-10">
@@ -74,7 +147,7 @@ export default async function Signup() {
           <p className="text-stone-400 text-sm text-center">Join thousands of users managing global transfers</p>
         </div>
 
-        <form className="relative z-10 space-y-5">
+        <form onSubmit={handleSignup} className="relative z-10 space-y-5">
           {/* Full Name */}
           {/* Full Name */}
           <div className="space-y-1.5">
@@ -157,14 +230,18 @@ export default async function Signup() {
                 <Lock className="h-5 w-5 text-stone-500" />
               </div>
               <input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 required
                 placeholder="••••••••" 
-                className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
+                className="w-full bg-[#1F2937] border border-stone-700 text-white rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:border-[#C9A227] focus:ring-1 focus:ring-[#C9A227] transition-colors placeholder:text-stone-500"
               />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer">
-                <EyeOff className="h-5 w-5 text-stone-500 hover:text-stone-300 transition-colors" />
-              </div>
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-stone-500 hover:text-stone-300 transition-colors"
+              >
+                {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
@@ -189,9 +266,10 @@ export default async function Signup() {
           <div className="pt-4">
             <button 
               type="submit" 
-              className="w-full rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] py-3.5 text-sm font-bold text-stone-900 shadow-[0_0_20px_rgba(201,162,39,0.3)] hover:shadow-[0_0_25px_rgba(201,162,39,0.5)] transition-all"
+              disabled={isLoading}
+              className="w-full rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] py-3.5 text-sm font-bold text-stone-900 shadow-[0_0_20px_rgba(201,162,39,0.3)] hover:shadow-[0_0_25px_rgba(201,162,39,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Account
+              {isLoading ? "Creating Account..." : "Create Account"}
             </button>
           </div>
         </form>

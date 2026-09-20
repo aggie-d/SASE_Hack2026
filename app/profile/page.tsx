@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useRef, ChangeEvent, useEffect } from "react";
 import Link from "next/link";
 import { 
   CheckCircle2, 
@@ -14,9 +14,11 @@ import {
   X, 
   Edit3, 
   Trash2,
-  Lock
+  Lock,
+  LogOut
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { createClient } from "@/lib/supabase/client";
 
 type PaymentMethod = {
   id: string;
@@ -29,17 +31,43 @@ type PaymentMethod = {
 export default function ProfilePage() {
   // Profile state
   const [profileData, setProfileData] = useState({
-    name: "Michael Wright",
-    email: "michael.wright@email.com",
-    accountId: "LAD-12345-6789",
-    phone: "+123456789",
-    country: "Malawi",
+    name: "Loading...",
+    email: "Loading...",
+    accountId: "...",
+    phone: "N/A", // Handled by standard profile if available
+    country: "N/A",
     currency: "MWK",
   });
+  const [verificationStatus, setVerificationStatus] = useState<"unverified" | "pending" | "verified">("unverified");
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   
+  useEffect(() => {
+    async function loadProfile() {
+      const supabase = createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      const email = authData.user?.email || "No email found";
+
+      try {
+        const res = await fetch("/api/v1/me");
+        if (res.ok) {
+          const data = await res.json();
+          setProfileData(prev => ({
+            ...prev,
+            name: data.display_name,
+            email: email,
+            accountId: data.user_id,
+          }));
+          setVerificationStatus(data.verification_status);
+        }
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      }
+    }
+    loadProfile();
+  }, []);
+
   // Payment methods state (Requirement 3)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     {
@@ -115,6 +143,11 @@ export default function ProfilePage() {
     e.preventDefault();
     setProfileData({ ...editFormData });
     setShowEditProfileModal(false);
+  };
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   return (
@@ -238,7 +271,7 @@ export default function ProfilePage() {
             {/* Subtle card glow */}
             <div className="absolute -top-24 right-10 w-64 h-64 bg-[#C9A227]/10 rounded-full blur-[70px] pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-center gap-6 sm:gap-8">
               {/* Profile Avatar with Change Picture Button (Requirement 4) */}
               <div className="relative group shrink-0">
                 <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-[#DFB338] to-[#B8911E] p-1 shadow-xl relative overflow-hidden flex items-center justify-center">
@@ -283,20 +316,36 @@ export default function ProfilePage() {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                       {profileData.name}
                     </h1>
-                    <p className="text-sm text-slate-400 font-medium">
+                    <p className="text-sm text-slate-400 font-medium mt-1">
                       {profileData.email}
                     </p>
+                    {/* Account ID Pill with Copy */}
+                    <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#DFB338]/20 via-[#DFB338]/10 to-transparent border border-[#DFB338]/40 text-[#DFB338] text-xs font-bold font-mono">
+                        <span>Account ID: {profileData.accountId}</span>
+                        <button
+                          type="button"
+                          onClick={handleCopyAccountId}
+                          className="text-slate-400 hover:text-white transition-colors"
+                          title="Copy Account ID"
+                        >
+                          {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Actions Column: Status Badge & Edit Button */}
-                  <div className="flex flex-col gap-2 self-center sm:self-start">
+                  <div className="flex flex-col gap-2 self-center sm:self-center">
                     {/* Account Status Badge */}
-                    <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-sm w-full sm:w-auto">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Account status: Verified</span>
+                    <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm w-full sm:w-auto
+                      ${verificationStatus === 'verified' ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-400' : 'bg-amber-950/80 border border-amber-500/40 text-amber-400'}
+                    `}>
+                      <CheckCircle2 className={`w-4 h-4 ${verificationStatus === 'verified' ? 'text-emerald-400' : 'text-amber-400'}`} />
+                      <span>Account status: {verificationStatus.charAt(0).toUpperCase() + verificationStatus.slice(1)}</span>
                     </div>
 
-                    {/* Edit Profile CTA (Moved up here) */}
+                    {/* Edit Profile CTA */}
                     <button
                       type="button"
                       onClick={() => {
@@ -308,20 +357,15 @@ export default function ProfilePage() {
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>Edit Profile</span>
                     </button>
-                  </div>
-                </div>
 
-                {/* Account ID Pill with Copy */}
-                <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#DFB338]/20 via-[#DFB338]/10 to-transparent border border-[#DFB338]/40 text-[#DFB338] text-xs font-bold font-mono">
-                    <span>Account ID: {profileData.accountId}</span>
+                    {/* Log Out Button */}
                     <button
                       type="button"
-                      onClick={handleCopyAccountId}
-                      className="text-slate-400 hover:text-white transition-colors"
-                      title="Copy Account ID"
+                      onClick={handleLogout}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 text-red-500 hover:text-red-400 transition-all text-xs font-semibold shadow-sm w-full sm:w-auto mt-1"
                     >
-                      {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Log Out</span>
                     </button>
                   </div>
                 </div>

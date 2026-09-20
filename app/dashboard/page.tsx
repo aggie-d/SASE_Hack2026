@@ -1,12 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BarChart3, ArrowUpRight, Eye, EyeOff } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { formatMinorUnits, parseMinorUnits } from "@/lib/contracts/money";
+import type { WalletBalance, CardResponse, MeResponse, WalletsResponse, CardsResponse } from "@/lib/contracts";
 
 export default function DashboardPage() {
   const [showCardNumber, setShowCardNumber] = useState(false);
+  const [displayName, setDisplayName] = useState("Loading...");
+  const [balance, setBalance] = useState("0.00");
+  const [cardNumber, setCardNumber] = useState("XXXX XXXX XXXX XXXX");
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        // Fetch User Profile
+        const meRes = await fetch("/api/v1/me");
+        if (meRes.ok) {
+          const meData = await meRes.json() as MeResponse;
+          setDisplayName(meData.display_name);
+        }
+
+        // Fetch Wallets
+        let totalUsdtUnits = 0n;
+        const walletsRes = await fetch("/api/v1/wallets");
+        if (walletsRes.ok) {
+          const walletsData = await walletsRes.json() as WalletsResponse;
+          const usdtWallet = walletsData.wallets.find(w => w.purpose === "usdt_wallet");
+          const cardWallet = walletsData.wallets.find(w => w.purpose === "card_funding");
+          
+          if (usdtWallet) totalUsdtUnits += parseMinorUnits(usdtWallet.available_units);
+          if (cardWallet) totalUsdtUnits += parseMinorUnits(cardWallet.available_units);
+          
+          setBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
+        }
+
+        // Fetch Cards
+        const cardsRes = await fetch("/api/v1/cards");
+        if (cardsRes.ok) {
+          const cardsData = await cardsRes.json() as CardsResponse;
+          if (cardsData.cards && cardsData.cards.length > 0) {
+            setCardNumber(cardsData.cards[0].masked_pan.replace(/•/g, "X"));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard data", err);
+      }
+    }
+    
+    loadDashboardData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
@@ -179,7 +224,7 @@ export default function DashboardPage() {
                   Current Balance
                 </p>
                 <p className="text-2xl sm:text-3xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight text-[#DFB338]">
-                  $1,250.00 <span className="text-sm sm:text-base lg:text-2xl xl:text-3xl font-bold text-white/90">USD</span>
+                  ${balance} <span className="text-sm sm:text-base lg:text-2xl xl:text-3xl font-bold text-white/90">USDT</span>
                 </p>
               </div>
             </div>
@@ -187,7 +232,7 @@ export default function DashboardPage() {
             {/* Card Number */}
             <div className="relative z-10 py-1 lg:py-3 flex items-center justify-between mt-2 lg:mt-6">
               <span className="font-mono text-lg sm:text-xl lg:text-3xl xl:text-4xl font-bold tracking-[0.22em] lg:tracking-[0.25em] text-[#DFB338] select-none">
-                {showCardNumber ? "4532 8921 7734 8910" : "XXXX XXXX XXXX XXXX"}
+                {showCardNumber ? cardNumber.replace(/X/g, "1") : cardNumber}
               </span>
               <button
                 type="button"
@@ -206,7 +251,7 @@ export default function DashboardPage() {
                   Premium Platinum
                 </p>
                 <p className="font-bold tracking-wider uppercase text-white sm:text-sm lg:text-xl xl:text-2xl">
-                  Michael Wright
+                  {displayName}
                 </p>
               </div>
 
