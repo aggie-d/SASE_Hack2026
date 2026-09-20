@@ -431,6 +431,17 @@ type Lookup = (
   id: string,
 ) => Promise<ReceiptSource | null>;
 
+/**
+ * Spend events (purchase, reversal, refund) are produced by POST /demo/purchases
+ * and POST /demo/events, never by Lithic. Their provider_reference is
+ * demo-auth:* / demo-capture:* etc. Label them honestly. The card itself is
+ * still a Lithic sandbox card, so card create/PATCH/GET keep lithic/sandbox.
+ */
+const DEMO_SPEND_PROVIDER = {
+  provider: "demo",
+  mode: "mock",
+} as const satisfies Pick<ReceiptSource, "provider" | "mode">;
+
 /** Journal ids posted under an operation id (deposit, conversion, card_fund). */
 async function journalIdsForOperation(
   admin: AdminClient,
@@ -567,9 +578,8 @@ const findPurchase: Lookup = async (admin, userId, id) => {
   return {
     item,
     journalIds: (transactions ?? []).map((transaction) => transaction.journal_id),
-    provider: "lithic",
+    ...DEMO_SPEND_PROVIDER,
     providerReference: data.provider_reference ?? item.reference,
-    mode: "sandbox",
     updatedAt: data.updated_at ?? item.created_at,
   };
 };
@@ -612,9 +622,8 @@ const findCardTransaction: Lookup = async (admin, userId, id) => {
   return {
     item,
     journalIds: [data.journal_id],
-    provider: "lithic",
+    ...DEMO_SPEND_PROVIDER,
     providerReference: data.provider_reference ?? item.reference,
-    mode: "sandbox",
     updatedAt: data.created_at,
   };
 };
