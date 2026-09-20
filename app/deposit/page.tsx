@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Smartphone, Building2, CreditCard, AlertCircle, ArrowRight, X, ChevronDown } from "lucide-react";
+import { 
+  Smartphone, 
+  Building2, 
+  CreditCard, 
+  AlertCircle, 
+  X, 
+  ChevronDown, 
+  CheckCircle2, 
+  Loader2 
+} from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 
 type CurrencyOption = {
@@ -12,6 +21,14 @@ type CurrencyOption = {
   flag: string;
   ratePerUsd: number;
   defaultAmount: string;
+};
+
+type PaymentMethod = {
+  id: string;
+  type: "card" | "bank" | "mobile";
+  title: string;
+  subtitle: string;
+  iconType: "card" | "bank" | "mobile";
 };
 
 const CURRENCIES: CurrencyOption[] = [
@@ -44,9 +61,50 @@ export default function DepositPage() {
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
   const [amount, setAmount] = useState<string>(defaultCurrency.defaultAmount);
-  const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("mobile");
+  const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
+  
+  // Payment methods state
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>("");
+  
+  // Action & Feedback state
+  const [isDepositing, setIsDepositing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    amount: string;
+    netUsd: string;
+    currency: string;
+    cardName: string;
+  } | null>(null);
+
+  // Cancel Modal state
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string>("/dashboard");
+
+  // Load linked payment methods on mount
+  useEffect(() => {
+    async function loadPaymentMethods() {
+      try {
+        const res = await fetch("/api/v1/payment-methods");
+        if (res.ok) {
+          const data = await res.json();
+          const methods = (data.payment_methods as PaymentMethod[]) || [];
+          setPaymentMethods(methods);
+          const firstCard = methods.find((m) => m.type === "card");
+          if (firstCard) {
+            setSelectedPaymentMethodId(firstCard.id);
+            setSelectedMethod("card");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load payment methods", e);
+      }
+    }
+    loadPaymentMethods();
+  }, []);
+
+  const cardMethods = paymentMethods.filter((m) => m.type === "card");
 
   // Dynamic calculations based on selected currency
   const rawNumber = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
@@ -54,6 +112,7 @@ export default function DepositPage() {
   const feeUsd = rawNumber > 0 ? 0.5 : 0;
   const netUsd = Math.max(0, grossUsd - feeUsd);
   const usdtEquivalent = netUsd; // 1 USDT = 1 USD stablecoin peg
+  const isMwk = selectedCurrency.code === "MWK";
 
   const handleCurrencySelect = (code: string) => {
     const found = CURRENCIES.find((c) => c.code === code);
@@ -73,11 +132,64 @@ export default function DepositPage() {
     router.push(pendingDestination);
   };
 
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (rawNumber <= 0) {
+      setErrorMsg("Please enter a positive deposit amount.");
+      return;
+    }
+
+    if (selectedMethod === "card" && cardMethods.length === 0) {
+      setErrorMsg("Please link a payment card in your profile before depositing.");
+      return;
+    }
+
+    setIsDepositing(true);
+
+    try {
+      const res = await fetch("/api/v1/deposits", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          method: selectedMethod,
+          payment_method_id: selectedPaymentMethodId || cardMethods[0]?.id,
+          amount: rawNumber.toString(),
+          currency: selectedCurrency.code,
+          net_usd: netUsd,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message || "Failed to process deposit.");
+      }
+
+      const data = await res.json();
+      setSuccessData({
+        amount: isMwk ? `${rawNumber.toLocaleString()} MWK` : `$${netUsd.toFixed(2)} USD`,
+        netUsd: netUsd.toFixed(2),
+        currency: selectedCurrency.code,
+        cardName: data.payment_method?.title
+          ? `${data.payment_method.title} (${data.payment_method.subtitle})`
+          : "Linked Card",
+      });
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to process deposit. Please try again.");
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FBFBFE] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
-      {/* Brand-new Background Design: Elegant Topographic Waves & Soft Mesh Ribbons */}
+      {/* Brand Background Design: Elegant Topographic Waves & Soft Mesh Ribbons */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Top-right & bottom-left subtle atmospheric glow */}
+        {/* Atmosphere glow */}
         <div className="absolute -top-32 -right-32 w-[550px] h-[550px] bg-blue-500/[0.07] rounded-full blur-[140px]" />
         <div className="absolute -bottom-32 -left-32 w-[550px] h-[550px] bg-[#C9A227]/[0.08] rounded-full blur-[140px]" />
 
@@ -118,16 +230,9 @@ export default function DepositPage() {
             strokeDasharray="5 5"
             strokeOpacity="0.2"
           />
-          <path
-            d="M-100,450 C380,320 780,560 1200,420 C1380,360 1480,480 1550,450"
-            fill="none"
-            stroke="#64748B"
-            strokeWidth="0.8"
-            strokeOpacity="0.12"
-          />
         </svg>
 
-        {/* Floating Subtle Currency Pills */}
+        {/* Floating Currency Pills */}
         <div className="hidden lg:flex items-center gap-1.5 absolute top-44 left-16 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200/80 shadow-sm backdrop-blur-sm text-xs font-semibold text-slate-500">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           MWK Currency Gateway
@@ -148,12 +253,14 @@ export default function DepositPage() {
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 mb-2">
             Deposit Funds
           </h1>
-
+          <p className="text-sm sm:text-base text-stone-600 max-w-md mx-auto">
+            Seamlessly add funds to your LADTransfer account to get started
+          </p>
         </div>
 
         {/* Deposit Card Container */}
         <div className="w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-[0_15px_40px_rgba(15,23,42,0.08)] border border-slate-200/90 relative">
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+          <form onSubmit={handleDeposit} className="space-y-6">
             {/* Input: Amount in Selected Currency */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -217,7 +324,7 @@ export default function DepositPage() {
                 </div>
               </div>
 
-              {/* Requirement 2: Dedicated Stable Coin to USD Conversion Rate Row */}
+              {/* Dedicated Stable Coin to USD Conversion Rate Row */}
               <div className="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-teal-500 flex items-center justify-center text-[7px] text-white font-bold">
@@ -254,14 +361,12 @@ export default function DepositPage() {
                 >
                   <span className="text-xs font-bold text-stone-800">Mobile Money</span>
                   <div className="flex items-center justify-center gap-3 my-2">
-                    {/* Airtel Money Badge */}
                     <div className="flex flex-col items-center">
                       <div className="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-white text-[9px] font-black">
                         a
                       </div>
                       <span className="text-[9px] font-bold text-red-600 tracking-tight">airtel</span>
                     </div>
-                    {/* TNM Mpamba Badge */}
                     <div className="flex flex-col items-center">
                       <div className="w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center text-white text-[9px] font-black">
                         M
@@ -314,24 +419,115 @@ export default function DepositPage() {
                       <div className="w-4 h-4 rounded-full bg-[#F79E1B] -ml-1.5" />
                     </div>
                   </div>
-                  <span className="text-[10px] text-stone-500 font-medium">Card/Online</span>
+                  <span className="text-[10px] text-stone-500 font-medium">Linked Card</span>
                 </button>
               </div>
             </div>
+
+            {/* Linked Card Selector Panel (when Card method is selected) */}
+            {selectedMethod === "card" && (
+              <div className="rounded-2xl bg-stone-50 border border-stone-200/90 p-4 space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                    Deposit From Linked Card
+                  </span>
+                  <Link
+                    href="/profile"
+                    className="text-xs font-bold text-[#DFB338] hover:underline flex items-center gap-1"
+                  >
+                    + Manage Cards
+                  </Link>
+                </div>
+
+                {cardMethods.length === 0 ? (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3 text-left">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-900">
+                        No linked card found
+                      </p>
+                      <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                        Please link a credit or debit card in your profile before depositing funds.
+                      </p>
+                      <Link
+                        href="/profile"
+                        className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] text-stone-950 text-xs font-bold transition-all shadow-xs hover:brightness-105"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>Link a Card in Profile</span>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {cardMethods.map((m) => {
+                      const isSelected = selectedPaymentMethodId === m.id || (!selectedPaymentMethodId && cardMethods[0]?.id === m.id);
+                      return (
+                        <label
+                          key={m.id}
+                          className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-white border-[#DFB338] shadow-sm ring-2 ring-[#DFB338]/30"
+                              : "bg-white/60 border-stone-200 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="selectedCard"
+                              value={m.id}
+                              checked={isSelected}
+                              onChange={() => setSelectedPaymentMethodId(m.id)}
+                              className="w-4 h-4 text-[#DFB338] focus:ring-[#DFB338] cursor-pointer"
+                            />
+                            <div className="w-8 h-8 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center text-[#DFB338]">
+                              <CreditCard className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-stone-900">{m.title}</p>
+                              <p className="text-[11px] font-mono text-stone-500">{m.subtitle}</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-md border border-green-200">
+                            Active
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error Message Banner */}
+            {errorMsg && (
+              <div className="w-full p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
             {/* Bottom Action Section */}
             <div className="pt-2 flex flex-col items-center gap-3">
               <button
                 type="submit"
-                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center"
+                disabled={isDepositing || (selectedMethod === "card" && cardMethods.length === 0)}
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               >
-                Deposit Funds
+                {isDepositing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Depositing Funds...</span>
+                  </>
+                ) : (
+                  <span>Deposit Funds</span>
+                )}
               </button>
 
               <button
                 type="button"
                 onClick={() => handleInterceptNavigation("/analytics")}
-                className="text-xs font-semibold text-stone-500 hover:text-stone-900 hover:underline transition-colors"
+                className="text-xs font-semibold text-stone-500 hover:text-stone-900 hover:underline transition-colors cursor-pointer"
               >
                 Recent History
               </button>
@@ -345,11 +541,75 @@ export default function DepositPage() {
         <p>© 2026 LADTransfer. All rights reserved.</p>
       </footer>
 
-      {/* Requirement 4: Graceful Cancel Confirmation Modal */}
+      {/* Success Confirmation Modal */}
+      {showSuccessModal && successData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-stone-200 transform animate-in zoom-in-95 duration-200 relative text-center">
+            <button
+              type="button"
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-green-50 border border-green-200 flex items-center justify-center text-green-600 mx-auto mb-4 shadow-sm">
+              <CheckCircle2 className="w-9 h-9" />
+            </div>
+
+            <h3 className="text-2xl font-extrabold text-stone-900 mb-1">
+              Deposit Confirmed!
+            </h3>
+            <p className="text-sm text-stone-600 mb-5">
+              Funds have been transferred from your linked card into your wallet.
+            </p>
+
+            <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-4 space-y-2.5 text-left mb-6 text-sm">
+              <div className="flex justify-between items-center text-stone-600">
+                <span>Amount Received:</span>
+                <span className="font-extrabold text-green-700 text-base">
+                  +{successData.amount}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span>Charged From:</span>
+                <span className="font-medium text-stone-900">
+                  {successData.cardName}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-stone-600">
+                <span>Destination:</span>
+                <span className="font-semibold text-stone-900">
+                  {successData.currency === "MWK" ? "MWK Wallet" : "USDT Wallet"}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-md hover:brightness-105 active:scale-[0.99] transition-all text-sm cursor-pointer"
+              >
+                Go to Dashboard
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/analytics")}
+                className="w-full py-2.5 px-4 rounded-xl text-stone-600 hover:text-stone-900 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                View in Analytics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Graceful Cancel Confirmation Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-stone-200 transform animate-in zoom-in-95 duration-200 relative">
-            {/* Close modal X button */}
             <button
               type="button"
               onClick={() => setShowCancelModal(false)}
@@ -358,7 +618,6 @@ export default function DepositPage() {
               <X className="w-4 h-4" />
             </button>
 
-            {/* Modal Icon & Heading */}
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-[#C9A227] mb-3.5 shadow-sm">
                 <AlertCircle className="w-6 h-6" />
@@ -371,7 +630,6 @@ export default function DepositPage() {
                 Are you sure you want to leave? Any deposit amount or payment method you selected will not be saved.
               </p>
 
-              {/* Modal Buttons */}
               <div className="w-full flex flex-col gap-2.5">
                 <button
                   type="button"
