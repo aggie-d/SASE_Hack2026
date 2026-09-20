@@ -101,6 +101,14 @@ export const POST = route(async (req) => {
     .single<CardRow>();
 
   if (insertError) {
+    // cards_user_id_uidx: a concurrent request won the race to create the
+    // user's single card. Report it the same way the pre-check above does.
+    if (insertError.code === "23505") {
+      throw new ApiHttpError("VALIDATION_ERROR", {
+        message: "A card already exists for this user.",
+      });
+    }
+
     throw insertError;
   }
 
