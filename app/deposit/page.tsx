@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Smartphone, Building2, CreditCard, AlertCircle, ArrowRight, X, Bell, ChevronDown } from "lucide-react";
+import { Smartphone, Building2, CreditCard, AlertCircle, ArrowRight, X, ChevronDown } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
 
 type CurrencyOption = {
   code: string;
@@ -137,62 +138,8 @@ export default function DepositPage() {
         </div>
       </div>
 
-      {/* Top Navigation: Only Logo, Dashboard, and Profile Picture */}
-      <header className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-5">
-        <div className="bg-[#0B1528] rounded-2xl px-5 py-3.5 flex items-center justify-between shadow-lg border border-slate-800">
-          {/* Brand Logo (triggers cancel prompt) */}
-          <button
-            type="button"
-            onClick={() => handleInterceptNavigation("/")}
-            className="flex items-center gap-1 font-bold text-xl tracking-tight text-left group"
-          >
-            <span className="text-[#C9A227] text-2xl">LT</span>
-            <span className="text-[#C9A227] ml-0.5">LAD</span>
-            <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
-          </button>
-
-          {/* Navigation: ONLY Dashboard button */}
-          <nav className="flex items-center">
-            <button
-              type="button"
-              onClick={() => handleInterceptNavigation("/dashboard")}
-              className="px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-colors"
-            >
-              Dashboard
-            </button>
-          </nav>
-
-          {/* Right Header Actions: Notification Bell + Profile Picture */}
-          <div className="flex items-center gap-3">
-            {/* Notification Bell with Badge */}
-            <button 
-              type="button" 
-              onClick={() => handleInterceptNavigation("/notifications")}
-              className="relative p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-[#C9A227] transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-                2
-              </span>
-            </button>
-
-            {/* Profile Picture / Avatar (triggers cancel prompt) */}
-            <button
-              type="button"
-              onClick={() => handleInterceptNavigation("/profile")}
-              className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 transition-colors group"
-            >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#DFB338] to-[#B8911E] flex items-center justify-center text-stone-900 font-bold text-xs shadow-sm">
-                MW
-              </div>
-              <span className="hidden sm:inline text-xs font-semibold text-white group-hover:text-[#C9A227] transition-colors">
-                Michael Wright
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Consistent Navigation Header with Intercept Navigation */}
+      <AppHeader active="deposit" onInterceptNavigate={handleInterceptNavigation} />
 
       {/* Main Content Area */}
       <main className="relative z-10 w-full max-w-7xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8">
