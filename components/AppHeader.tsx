@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 
 type AppHeaderProps = {
-  active?: "dashboard" | "deposit" | "profile" | "analytics";
+  active?: "dashboard" | "deposit" | "profile" | "analytics" | "notifications";
   onInterceptNavigate?: (url: string) => void;
 };
 
@@ -77,7 +77,11 @@ export function AppHeader({ active, onInterceptNavigate }: AppHeaderProps) {
           <button
             type="button"
             onClick={() => handleNav("/notifications")}
-            className="relative p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-[#C9A227] transition-colors"
+            className={`relative p-2 rounded-xl border transition-colors ${
+              active === "notifications"
+                ? "bg-blue-600/30 border-blue-500/40 text-[#DFB338] shadow-sm"
+                : "bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-[#C9A227]"
+            }`}
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
