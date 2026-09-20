@@ -19,6 +19,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   CARD_FROZEN: 422,
   LIMIT_EXCEEDED: 422,
   DEPOSIT_PENDING: 422,
+  PROVIDER_FAILED: 422,
   PROVIDER_PENDING: 202,
   INTERNAL_ERROR: 500,
 };
@@ -36,6 +37,7 @@ export const ERROR_RETRYABLE: Record<ErrorCode, boolean> = {
   CARD_FROZEN: false,
   LIMIT_EXCEEDED: false,
   DEPOSIT_PENDING: true,
+  PROVIDER_FAILED: false,
   PROVIDER_PENDING: true,
   INTERNAL_ERROR: true,
 };
@@ -48,6 +50,7 @@ export const ERROR_MESSAGE: Record<ErrorCode, string> = {
   CARD_FROZEN: "Card frozen. Unfreeze the card to make a purchase.",
   LIMIT_EXCEEDED: "This amount is over the card's per-transaction limit.",
   DEPOSIT_PENDING: "Deposit is still pending. Funds are credited once the provider confirms.",
+  PROVIDER_FAILED: "The provider could not complete this conversion. Request a new quote to try again.",
   VERIFICATION_REQUIRED: "Complete verification before continuing.",
   UNAUTHORIZED: "Sign in to continue.",
   FORBIDDEN: "You do not have access to this resource.",
