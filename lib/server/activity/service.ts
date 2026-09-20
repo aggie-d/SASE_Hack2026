@@ -88,6 +88,95 @@ function money(
   };
 }
 
+// ─── Row → ActivityItem mappers (shared by the feed and receipts) ────────────
+
+function depositItem(deposit: DepositRow): ActivityItem {
+  return {
+    id: deposit.id,
+    type: "deposit",
+    status: deposit.status,
+    title:
+      deposit.method === "mobile_money"
+        ? "Deposit via mobile money"
+        : "Deposit via bank transfer",
+    amount: money(deposit.asset, deposit.amount_units),
+    fee: null,
+    reference: deposit.provider_reference ?? deposit.id,
+    created_at: deposit.created_at,
+  };
+}
+
+function conversionQuote(conversion: ConversionRow): QuoteRow | null {
+  const quote = Array.isArray(conversion.quotes)
+    ? conversion.quotes[0]
+    : conversion.quotes;
+  return quote ?? null;
+}
+
+function conversionItem(
+  conversion: ConversionRow,
+  quote: QuoteRow,
+): ActivityItem {
+  return {
+    id: conversion.id,
+    type: "conversion",
+    status: conversion.status,
+    title: "MWK to USDT conversion",
+    amount: money("MWK", quote.source_units),
+    fee: money("MWK", quote.fee_units),
+    reference: conversion.provider_reference ?? conversion.id,
+    created_at: conversion.created_at,
+  };
+}
+
+function purchaseItem(authorization: AuthorizationRow): ActivityItem {
+  return {
+    id: authorization.id,
+    type: "purchase",
+    status: authorization.status,
+    title: `Purchase — ${authorization.merchant}`,
+    amount: money("USDT", authorization.usdt_amount_units),
+    fee: null,
+    reference: authorization.provider_reference,
+    created_at: authorization.created_at,
+  };
+}
+
+function cardTransactionItem(
+  transaction: CardTransactionRow,
+  merchant: string | undefined,
+): ActivityItem {
+  const isRefund = transaction.type === "refund";
+  return {
+    id: transaction.id,
+    type: isRefund ? "refund" : "reversal",
+    status: "posted",
+    title: isRefund
+      ? `Refund — ${merchant ?? "Merchant"}`
+      : `Reversal — ${merchant ?? "Merchant"}`,
+    amount: money("USDT", transaction.usdt_amount_units),
+    fee: null,
+    reference: transaction.provider_reference,
+    created_at: transaction.created_at,
+  };
+}
+
+function cardFundItem(
+  journal: JournalRow,
+  creditUnits: string | number,
+): ActivityItem {
+  return {
+    id: journal.operation_id,
+    type: "card_fund",
+    status: journal.status,
+    title: "Fund virtual card",
+    amount: money("USDT", creditUnits),
+    fee: null,
+    reference: journal.operation_id,
+    created_at: journal.created_at,
+  };
+}
+
 function compareActivity(a: ActivityItem, b: ActivityItem): number {
   const timeDifference =
     new Date(b.created_at).getTime() -
@@ -145,19 +234,7 @@ export async function listActivity(params: {
   }
 
   for (const deposit of deposits ?? []) {
-    items.push({
-      id: deposit.id,
-      type: "deposit",
-      status: deposit.status,
-      title:
-        deposit.method === "mobile_money"
-          ? "Deposit via mobile money"
-          : "Deposit via bank transfer",
-      amount: money(deposit.asset, deposit.amount_units),
-      fee: null,
-      reference: deposit.provider_reference ?? deposit.id,
-      created_at: deposit.created_at,
-    });
+    items.push(depositItem(deposit));
   }
 
   const { data: conversions, error: conversionError } =
@@ -174,25 +251,13 @@ export async function listActivity(params: {
   }
 
   for (const conversion of conversions ?? []) {
-    const quote = Array.isArray(conversion.quotes)
-      ? conversion.quotes[0]
-      : conversion.quotes;
+    const quote = conversionQuote(conversion);
 
     if (!quote) {
       continue;
     }
 
-    items.push({
-      id: conversion.id,
-      type: "conversion",
-      status: conversion.status,
-      title: "MWK to USDT conversion",
-      amount: money("MWK", quote.source_units),
-      fee: money("MWK", quote.fee_units),
-      reference:
-        conversion.provider_reference ?? conversion.id,
-      created_at: conversion.created_at,
-    });
+    items.push(conversionItem(conversion, quote));
   }
 
   const { data: cards, error: cardsError } = await admin
@@ -225,16 +290,7 @@ export async function listActivity(params: {
   }
 
   for (const authorization of authorizations) {
-    items.push({
-      id: authorization.id,
-      type: "purchase",
-      status: authorization.status,
-      title: `Purchase — ${authorization.merchant}`,
-      amount: money("USDT", authorization.usdt_amount_units),
-      fee: null,
-      reference: authorization.provider_reference,
-      created_at: authorization.created_at,
-    });
+    items.push(purchaseItem(authorization));
   }
 
   const authorizationIds = authorizations.map(
@@ -267,25 +323,9 @@ export async function listActivity(params: {
         transaction.authorization_id,
       );
 
-      items.push({
-        id: transaction.id,
-        type:
-          transaction.type === "refund"
-            ? "refund"
-            : "reversal",
-        status: "posted",
-        title:
-          transaction.type === "refund"
-            ? `Refund — ${authorization?.merchant ?? "Merchant"}`
-            : `Reversal — ${authorization?.merchant ?? "Merchant"}`,
-        amount: money(
-          "USDT",
-          transaction.usdt_amount_units,
-        ),
-        fee: null,
-        reference: transaction.provider_reference,
-        created_at: transaction.created_at,
-      });
+      items.push(
+        cardTransactionItem(transaction, authorization?.merchant),
+      );
     }
   }
 
@@ -338,16 +378,7 @@ export async function listActivity(params: {
         continue;
       }
 
-      items.push({
-        id: journal.operation_id,
-        type: "card_fund",
-        status: journal.status,
-        title: "Fund virtual card",
-        amount: money("USDT", entry.credit_units),
-        fee: null,
-        reference: journal.operation_id,
-        created_at: journal.created_at,
-      });
+      items.push(cardFundItem(journal, entry.credit_units));
     }
   }
 
@@ -380,179 +411,335 @@ export async function listActivity(params: {
   };
 }
 
-export async function getActivityReceipt(params: {
-    userId: string;
-    activityId: string;
-  }): Promise<ReceiptResponse> {
-    const admin = createAdminClient();
-  
-    // Reuse listActivity so the requested activity must belong to this user.
-    const activity = await listActivity({
-      userId: params.userId,
-      limit: 1000,
-    });
-  
-    const item = activity.items.find(
-      (candidate) => candidate.id === params.activityId,
-    );
-  
-    if (!item) {
-      throw new ApiHttpError("NOT_FOUND", {
-        message: "Activity was not found.",
-    });
-    }
-  
-    let journalIds: string[] = [];
-    let provider: string | null = null;
-    let providerReference: string | null = item.reference;
-    let mode: ProviderMode = "mock";
-    let updatedAt = item.created_at;
-  
-    if (
-      item.type === "deposit" ||
-      item.type === "conversion" ||
-      item.type === "card_fund"
-    ) {
-      const { data: journals, error } = await admin
-        .from("journals")
-        .select("id, updated_at")
-        .eq("operation_id", item.id);
-  
-      if (error) {
-        throw error;
-      }
-  
-      journalIds = (journals ?? []).map((journal) => journal.id);
-  
-      const latestJournal = (journals ?? []).at(-1);
-      if (latestJournal?.updated_at) {
-        updatedAt = latestJournal.updated_at;
-      }
-    }
-  
-    if (item.type === "deposit") {
-      const { data: deposit, error } = await admin
-        .from("deposits")
-        .select("provider, provider_reference, updated_at")
-        .eq("id", item.id)
-        .eq("user_id", params.userId)
-        .maybeSingle();
-  
-      if (error) {
-        throw error;
-      }
-  
-      provider = deposit?.provider ?? null;
-      providerReference =
-        deposit?.provider_reference ?? providerReference;
-      updatedAt = deposit?.updated_at ?? updatedAt;
-    }
-  
-    if (item.type === "conversion") {
-      const { data: conversion, error } = await admin
-        .from("conversions")
-        .select("provider_reference, updated_at")
-        .eq("id", item.id)
-        .eq("user_id", params.userId)
-        .maybeSingle();
-  
-      if (error) {
-        throw error;
-      }
-  
-      providerReference =
-        conversion?.provider_reference ?? providerReference;
-      updatedAt = conversion?.updated_at ?? updatedAt;
-    }
-  
-    if (item.type === "purchase") {
-      const { data: authorization, error } = await admin
-        .from("card_authorizations")
-        .select("provider_reference, updated_at")
-        .eq("id", item.id)
-        .maybeSingle();
-  
-      if (error) {
-        throw error;
-      }
-  
-      provider = "lithic";
-      mode = "sandbox";
-      providerReference =
-        authorization?.provider_reference ?? providerReference;
-      updatedAt = authorization?.updated_at ?? updatedAt;
-  
-      const { data: transactions, error: transactionError } =
-        await admin
-          .from("card_transactions")
-          .select("journal_id")
-          .eq("authorization_id", item.id);
-  
-      if (transactionError) {
-        throw transactionError;
-      }
-  
-      journalIds = (transactions ?? []).map(
-        (transaction) => transaction.journal_id,
-      );
-    }
-  
-    if (item.type === "reversal" || item.type === "refund") {
-      const { data: transaction, error } = await admin
-        .from("card_transactions")
-        .select("journal_id, provider_reference, created_at")
-        .eq("id", item.id)
-        .maybeSingle();
-  
-      if (error) {
-        throw error;
-      }
-  
-      if (transaction) {
-        journalIds = [transaction.journal_id];
-        provider = "lithic";
-        mode = "sandbox";
-        providerReference =
-          transaction.provider_reference ?? providerReference;
-        updatedAt = transaction.created_at;
-      }
-    }
-  
-    let legs: LedgerLeg[] = [];
-  
-    if (journalIds.length > 0) {
-      const { data: entries, error } = await admin
-        .from("journal_entries")
-        .select(
-          "journal_id, asset, debit_units, credit_units, accounts!inner(purpose)",
-        )
-        .in("journal_id", journalIds);
-  
-      if (error) {
-        throw error;
-      }
-  
-      legs = (entries ?? []).map((entry) => {
-        const account = Array.isArray(entry.accounts)
-          ? entry.accounts[0]
-          : entry.accounts;
-  
-        return {
-          journal_id: entry.journal_id,
-          account_purpose: account.purpose as AccountPurpose,
-          asset: entry.asset as Asset,
-          debit_units: String(entry.debit_units),
-          credit_units: String(entry.credit_units),
-        };
-      });
-    }
-  
-    return {
-      ...item,
-      legs,
-      provider,
-      provider_reference: providerReference,
-      mode,
-      updated_at: updatedAt,
-    };
+// ─── Receipts ────────────────────────────────────────────────────────────────
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/** Everything a receipt needs beyond the ActivityItem itself. */
+type ReceiptSource = {
+  item: ActivityItem;
+  journalIds: string[];
+  provider: string | null;
+  providerReference: string | null;
+  mode: ProviderMode;
+  updatedAt: string;
+};
+
+type Lookup = (
+  admin: AdminClient,
+  userId: string,
+  id: string,
+) => Promise<ReceiptSource | null>;
+
+/** Journal ids posted under an operation id (deposit, conversion, card_fund). */
+async function journalIdsForOperation(
+  admin: AdminClient,
+  operationId: string,
+): Promise<{ ids: string[]; latestUpdatedAt: string | null }> {
+  const { data, error } = await admin
+    .from("journals")
+    .select("id, updated_at")
+    .eq("operation_id", operationId)
+    .order("created_at", { ascending: true })
+    .returns<{ id: string; updated_at: string | null }[]>();
+
+  if (error) {
+    throw error;
   }
+
+  const journals = data ?? [];
+  return {
+    ids: journals.map((journal) => journal.id),
+    latestUpdatedAt: journals.at(-1)?.updated_at ?? null,
+  };
+}
+
+const findDeposit: Lookup = async (admin, userId, id) => {
+  const { data, error } = await admin
+    .from("deposits")
+    .select(
+      "id, method, amount_units, asset, provider, provider_reference, status, created_at, updated_at",
+    )
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle<DepositRow & { provider: string | null; updated_at: string }>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const item = depositItem(data);
+  const journals = await journalIdsForOperation(admin, id);
+
+  return {
+    item,
+    journalIds: journals.ids,
+    provider: data.provider,
+    providerReference: data.provider_reference ?? item.reference,
+    mode: "mock",
+    updatedAt: data.updated_at ?? journals.latestUpdatedAt ?? item.created_at,
+  };
+};
+
+const findConversion: Lookup = async (admin, userId, id) => {
+  const { data, error } = await admin
+    .from("conversions")
+    .select(
+      "id, status, provider_reference, created_at, updated_at, quotes!inner(source_units, fee_units)",
+    )
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle<ConversionRow & { updated_at: string }>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const quote = conversionQuote(data);
+
+  if (!quote) {
+    return null;
+  }
+
+  const item = conversionItem(data, quote);
+  const journals = await journalIdsForOperation(admin, id);
+
+  return {
+    item,
+    journalIds: journals.ids,
+    provider: null,
+    providerReference: data.provider_reference ?? item.reference,
+    mode: "mock",
+    updatedAt: data.updated_at ?? journals.latestUpdatedAt ?? item.created_at,
+  };
+};
+
+type OwnedAuthorizationRow = AuthorizationRow & {
+  updated_at: string;
+  cards: { user_id: string } | { user_id: string }[];
+};
+
+function embeddedOwner(
+  cards: { user_id: string } | { user_id: string }[] | null | undefined,
+): string | null {
+  const card = Array.isArray(cards) ? cards[0] : cards;
+  return card?.user_id ?? null;
+}
+
+const findPurchase: Lookup = async (admin, userId, id) => {
+  const { data, error } = await admin
+    .from("card_authorizations")
+    .select(
+      "id, card_id, merchant, usdt_amount_units, provider_reference, status, created_at, updated_at, cards!inner(user_id)",
+    )
+    .eq("id", id)
+    .maybeSingle<OwnedAuthorizationRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  // Ownership is checked on the joined card, never on the authorization alone.
+  if (!data || embeddedOwner(data.cards) !== userId) {
+    return null;
+  }
+
+  const { data: transactions, error: transactionError } = await admin
+    .from("card_transactions")
+    .select("journal_id")
+    .eq("authorization_id", id)
+    .returns<{ journal_id: string }[]>();
+
+  if (transactionError) {
+    throw transactionError;
+  }
+
+  const item = purchaseItem(data);
+
+  return {
+    item,
+    journalIds: (transactions ?? []).map((transaction) => transaction.journal_id),
+    provider: "lithic",
+    providerReference: data.provider_reference ?? item.reference,
+    mode: "sandbox",
+    updatedAt: data.updated_at ?? item.created_at,
+  };
+};
+
+type OwnedCardTransactionRow = CardTransactionRow & {
+  journal_id: string;
+  card_authorizations:
+    | { merchant: string; cards: { user_id: string } | { user_id: string }[] }
+    | { merchant: string; cards: { user_id: string } | { user_id: string }[] }[];
+};
+
+const findCardTransaction: Lookup = async (admin, userId, id) => {
+  const { data, error } = await admin
+    .from("card_transactions")
+    .select(
+      "id, authorization_id, type, usdt_amount_units, provider_reference, journal_id, created_at, card_authorizations!inner(merchant, cards!inner(user_id))",
+    )
+    .eq("id", id)
+    .in("type", ["reversal", "refund"])
+    .maybeSingle<OwnedCardTransactionRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const authorization = Array.isArray(data.card_authorizations)
+    ? data.card_authorizations[0]
+    : data.card_authorizations;
+
+  if (!authorization || embeddedOwner(authorization.cards) !== userId) {
+    return null;
+  }
+
+  const item = cardTransactionItem(data, authorization.merchant);
+
+  return {
+    item,
+    journalIds: [data.journal_id],
+    provider: "lithic",
+    providerReference: data.provider_reference ?? item.reference,
+    mode: "sandbox",
+    updatedAt: data.created_at,
+  };
+};
+
+const findCardFund: Lookup = async (admin, userId, id) => {
+  // (operation_id, type) is unique, so this is at most one row.
+  const { data: journal, error } = await admin
+    .from("journals")
+    .select("id, operation_id, type, status, created_at, updated_at")
+    .eq("operation_id", id)
+    .eq("type", "card_fund")
+    .maybeSingle<JournalRow & { updated_at: string | null }>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!journal) {
+    return null;
+  }
+
+  // The funding journal must credit *this* user's card_funding account.
+  const accounts = await getUserAccounts(userId);
+
+  const { data: entry, error: entryError } = await admin
+    .from("journal_entries")
+    .select("journal_id, credit_units")
+    .eq("journal_id", journal.id)
+    .eq("account_id", accounts.card_funding.id)
+    .gt("credit_units", 0)
+    .maybeSingle<JournalEntryRow>();
+
+  if (entryError) {
+    throw entryError;
+  }
+
+  if (!entry) {
+    return null;
+  }
+
+  const item = cardFundItem(journal, entry.credit_units);
+
+  return {
+    item,
+    journalIds: [journal.id],
+    provider: null,
+    providerReference: item.reference,
+    mode: "mock",
+    updatedAt: journal.updated_at ?? item.created_at,
+  };
+};
+
+/** Tried in order; the first source that owns the id wins. */
+const RECEIPT_LOOKUPS: readonly Lookup[] = [
+  findDeposit,
+  findConversion,
+  findPurchase,
+  findCardTransaction,
+  findCardFund,
+];
+
+async function legsForJournals(
+  admin: AdminClient,
+  journalIds: string[],
+): Promise<LedgerLeg[]> {
+  if (journalIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await admin
+    .from("journal_entries")
+    .select(
+      "journal_id, asset, debit_units, credit_units, accounts!inner(purpose)",
+    )
+    .in("journal_id", journalIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((entry) => {
+    const account = Array.isArray(entry.accounts)
+      ? entry.accounts[0]
+      : entry.accounts;
+
+    return {
+      journal_id: entry.journal_id,
+      account_purpose: account.purpose as AccountPurpose,
+      asset: entry.asset as Asset,
+      debit_units: String(entry.debit_units),
+      credit_units: String(entry.credit_units),
+    };
+  });
+}
+
+export async function getActivityReceipt(params: {
+  userId: string;
+  activityId: string;
+}): Promise<ReceiptResponse> {
+  const admin = createAdminClient();
+
+  let source: ReceiptSource | null = null;
+
+  for (const lookup of RECEIPT_LOOKUPS) {
+    source = await lookup(admin, params.userId, params.activityId);
+
+    if (source) {
+      break;
+    }
+  }
+
+  if (!source) {
+    throw new ApiHttpError("NOT_FOUND", {
+      message: "Activity was not found.",
+    });
+  }
+
+  const legs = await legsForJournals(admin, source.journalIds);
+
+  return {
+    ...source.item,
+    legs,
+    provider: source.provider,
+    provider_reference: source.providerReference,
+    mode: source.mode,
+    updated_at: source.updatedAt,
+  };
+}
