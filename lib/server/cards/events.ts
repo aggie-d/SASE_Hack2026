@@ -149,10 +149,21 @@ async function processCapture(
   event: ProviderEventRow,
   authorization: AuthorizationRow,
 ): Promise<void> {
-  if (
-    authorization.status !== "pending" &&
-    authorization.status !== "captured"
-  ) {
+  // Already captured: the journal and hold consumption happened on an earlier
+  // attempt. Return the existing capture instead of touching the ledger again.
+  if (authorization.status === "captured") {
+    const existing = await findCapture(authorization.id);
+
+    if (!existing) {
+      throw new ApiHttpError("INTERNAL_ERROR", {
+        message: "Authorization is marked captured but has no capture transaction.",
+      });
+    }
+
+    return;
+  }
+
+  if (authorization.status !== "pending") {
     throw new ApiHttpError("VALIDATION_ERROR", {
       message: `Cannot capture an authorization with status ${authorization.status}.`,
     });
