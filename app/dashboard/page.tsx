@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, ArrowUpRight, Eye, EyeOff } from "lucide-react";
+import { BarChart3, ArrowUpRight, Eye, EyeOff, CreditCard, Plus } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { formatMinorUnits, parseMinorUnits } from "@/lib/contracts/money";
-import type { WalletBalance, CardResponse, MeResponse, WalletsResponse, CardsResponse } from "@/lib/contracts";
+import type { CardResponse, MeResponse, WalletsResponse, CardsResponse } from "@/lib/contracts";
+import { FundCardModal } from "@/components/FundCardModal";
 
 export default function DashboardPage() {
   const [showCardNumber, setShowCardNumber] = useState(false);
@@ -15,48 +16,76 @@ export default function DashboardPage() {
   const [rawCardFundingBalance, setRawCardFundingBalance] = useState("0.00");
   const [cardNumber, setCardNumber] = useState("XXXX XXXX XXXX XXXX");
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        // Fetch User Profile
-        const meRes = await fetch("/api/v1/me");
-        if (meRes.ok) {
-          const meData = (await meRes.json()) as MeResponse;
-          setDisplayName(meData.display_name);
-        }
+  // Fund Modal States
+  const [isFundModalOpen, setIsFundModalOpen] = useState(false);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [cardLast4, setCardLast4] = useState<string>("7597");
+  const [availableMwkUnits, setAvailableMwkUnits] = useState<bigint>(0n);
+  const [availableUsdtUnits, setAvailableUsdtUnits] = useState<bigint>(0n);
 
-        // Fetch Wallets
-        const walletsRes = await fetch("/api/v1/wallets");
-        if (walletsRes.ok) {
-          const walletsData = (await walletsRes.json()) as WalletsResponse;
-          const mwkWallet = walletsData.wallets.find((w) => w.purpose === "mwk_wallet");
-          const usdtWallet = walletsData.wallets.find((w) => w.purpose === "usdt_wallet");
-          const cardWallet = walletsData.wallets.find((w) => w.purpose === "card_funding");
+  const loadDashboardData = useCallback(async () => {
+    try {
+      // Fetch User Profile
+      const meRes = await fetch("/api/v1/me");
+      let userDisplayName = "User";
+      if (meRes.ok) {
+        const meData = (await meRes.json()) as MeResponse;
+        userDisplayName = meData.display_name;
+        setDisplayName(userDisplayName);
+      }
 
-          const totalMwkUnits = mwkWallet ? parseMinorUnits(mwkWallet.available_units) : 0n;
-          const totalUsdtUnits = usdtWallet ? parseMinorUnits(usdtWallet.available_units) : 0n;
-          const totalCardFundingUnits = cardWallet ? parseMinorUnits(cardWallet.available_units) : 0n;
+      // Fetch Wallets
+      const walletsRes = await fetch("/api/v1/wallets");
+      if (walletsRes.ok) {
+        const walletsData = (await walletsRes.json()) as WalletsResponse;
+        const mwkWallet = walletsData.wallets.find((w) => w.purpose === "mwk_wallet");
+        const usdtWallet = walletsData.wallets.find((w) => w.purpose === "usdt_wallet");
+        const cardWallet = walletsData.wallets.find((w) => w.purpose === "card_funding");
 
-          setMwkBalance(formatMinorUnits(totalMwkUnits, "MWK", { code: false }));
-          setRawUsdtBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
-          setRawCardFundingBalance(formatMinorUnits(totalCardFundingUnits, "USDT", { code: false }));
-        }
+        const totalMwkUnits = mwkWallet ? parseMinorUnits(mwkWallet.available_units) : 0n;
+        const totalUsdtUnits = usdtWallet ? parseMinorUnits(usdtWallet.available_units) : 0n;
+        const totalCardFundingUnits = cardWallet ? parseMinorUnits(cardWallet.available_units) : 0n;
 
-        // Fetch Cards
-        const cardsRes = await fetch("/api/v1/cards");
-        if (cardsRes.ok) {
-          const cardsData = (await cardsRes.json()) as CardsResponse;
-          if (cardsData.cards && cardsData.cards.length > 0) {
-            setCardNumber(cardsData.cards[0].masked_pan.replace(/•/g, "X"));
+        setAvailableMwkUnits(totalMwkUnits);
+        setAvailableUsdtUnits(totalUsdtUnits);
+
+        setMwkBalance(formatMinorUnits(totalMwkUnits, "MWK", { code: false }));
+        setRawUsdtBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
+        setRawCardFundingBalance(formatMinorUnits(totalCardFundingUnits, "USDT", { code: false }));
+      }
+
+      // Fetch Cards
+      const cardsRes = await fetch("/api/v1/cards");
+      if (cardsRes.ok) {
+        const cardsData = (await cardsRes.json()) as CardsResponse;
+        if (cardsData.cards && cardsData.cards.length > 0) {
+          const card = cardsData.cards[0];
+          setActiveCardId(card.card_id);
+          setCardLast4(card.last4);
+          setCardNumber(card.masked_pan.replace(/•/g, "X"));
+        } else {
+          // Auto-create virtual card if user doesn't have one
+          const createRes = await fetch("/api/v1/cards", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cardholder_name: userDisplayName }),
+          });
+          if (createRes.ok) {
+            const newCard = (await createRes.json()) as CardResponse;
+            setActiveCardId(newCard.card_id);
+            setCardLast4(newCard.last4);
+            setCardNumber(newCard.masked_pan.replace(/•/g, "X"));
           }
         }
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
       }
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
     }
-
-    loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
@@ -193,7 +222,7 @@ export default function DashboardPage() {
             {/* Subtle Top Glow */}
             <div className="absolute top-0 right-0 w-52 h-52 lg:w-72 lg:h-72 bg-[#C9A227]/10 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Card Header: Brand + Contactless Icon */}
+            {/* Card Header: Brand + Contactless Icon / Quick Fund */}
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center gap-1 font-bold text-lg sm:text-xl lg:text-3xl tracking-tight select-none">
                 <span className="text-[#C9A227] text-xl sm:text-2xl lg:text-4xl">LT</span>
@@ -201,13 +230,27 @@ export default function DashboardPage() {
                 <span className="text-white">Transfer</span>
               </div>
 
-              {/* Contactless Waves Icon */}
-              <div className="text-slate-300/80">
-                <svg className="w-6 h-6 lg:w-9 lg:h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-                  <path d="M12 19a8.5 8.5 0 0 0 0-14" />
-                  <path d="M15.5 21.5a12 12 0 0 0 0-19" />
-                </svg>
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsFundModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-full bg-[#DFB338]/20 hover:bg-[#DFB338]/30 border border-[#DFB338]/40 text-[#DFB338] text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                >
+                  <Plus className="w-3 h-3 stroke-[3]" />
+                  <span>Fund Card</span>
+                </button>
+
+                {/* Contactless Waves Icon */}
+                <div className="text-slate-300/80">
+                  <svg className="w-6 h-6 lg:w-9 lg:h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <path d="M8.5 16.5a5 5 0 0 1 0-9" />
+                    <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+                    <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+                  </svg>
+                </div>
               </div>
             </div>
 
@@ -306,37 +349,55 @@ export default function DashboardPage() {
               ${rawUsdtBalance} <span className="text-[10px] text-slate-400">USDT</span>
             </p>
           </div>
-          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Card Funds
-            </p>
+          <div
+            onClick={() => setIsFundModalOpen(true)}
+            className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md cursor-pointer hover:border-[#DFB338]/60 hover:shadow-[0_0_20px_rgba(223,179,56,0.15)] transition-all group"
+          >
+            <div className="flex items-center justify-center gap-1">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 group-hover:text-[#DFB338] transition-colors">
+                Card Funds
+              </p>
+              <span className="text-[8px] sm:text-[9px] bg-[#DFB338]/20 text-[#DFB338] font-bold px-1.5 py-0.2 rounded-full">
+                + Top Up
+              </span>
+            </div>
             <p className="text-xs sm:text-sm lg:text-base font-bold text-[#DFB338] mt-0.5 truncate">
               ${rawCardFundingBalance} <span className="text-[10px] text-slate-400">USDT</span>
             </p>
           </div>
         </div>
 
-        {/* Action Buttons: Analytics & Deposit */}
+        {/* Action Buttons: Fund Card, Deposit & Analytics */}
         <div
-          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] grid grid-cols-2 gap-4 sm:gap-5 lg:gap-6"
+          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] grid grid-cols-3 gap-2.5 sm:gap-4 lg:gap-5"
           style={{ animation: "wave-lift 0.9s ease-in-out 0.36s both" }}
         >
-          {/* Analytics CTA */}
-          <Link
-            href="/analytics"
-            className="flex items-center justify-center gap-2.5 py-3.5 sm:py-4 px-4 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_20px_rgba(201,162,39,0.25)] hover:shadow-[0_12px_28px_rgba(201,162,39,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base sm:text-lg"
+          {/* Fund Card CTA */}
+          <button
+            type="button"
+            onClick={() => setIsFundModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 sm:gap-2.5 py-3.5 sm:py-4 px-2 sm:px-4 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_20px_rgba(201,162,39,0.25)] hover:shadow-[0_12px_28px_rgba(201,162,39,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-xs sm:text-base lg:text-lg cursor-pointer"
           >
-            <BarChart3 className="w-5 h-5 stroke-[2.5]" />
-            <span>Analytics</span>
-          </Link>
+            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
+            <span>Fund Card</span>
+          </button>
 
           {/* Deposit CTA */}
           <Link
             href="/deposit"
-            className="flex items-center justify-center gap-2.5 py-3.5 sm:py-4 px-4 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_20px_rgba(201,162,39,0.25)] hover:shadow-[0_12px_28px_rgba(201,162,39,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base sm:text-lg"
+            className="flex items-center justify-center gap-1.5 sm:gap-2.5 py-3.5 sm:py-4 px-2 sm:px-4 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_20px_rgba(201,162,39,0.25)] hover:shadow-[0_12px_28px_rgba(201,162,39,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-xs sm:text-base lg:text-lg text-center"
           >
-            <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
+            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
             <span>Deposit</span>
+          </Link>
+
+          {/* Analytics CTA */}
+          <Link
+            href="/analytics"
+            className="flex items-center justify-center gap-1.5 sm:gap-2.5 py-3.5 sm:py-4 px-2 sm:px-4 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_20px_rgba(201,162,39,0.25)] hover:shadow-[0_12px_28px_rgba(201,162,39,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-xs sm:text-base lg:text-lg text-center"
+          >
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
+            <span>Analytics</span>
           </Link>
         </div>
       </main>
@@ -348,6 +409,18 @@ export default function DashboardPage() {
       >
         <p>© 2026 LADTransfer. All rights reserved.</p>
       </footer>
+
+      {/* Fund Card Modal */}
+      <FundCardModal
+        isOpen={isFundModalOpen}
+        onClose={() => setIsFundModalOpen(false)}
+        onSuccess={() => loadDashboardData()}
+        cardId={activeCardId}
+        cardLast4={cardLast4}
+        currentCardBalanceUsd={rawCardFundingBalance}
+        availableMwkUnits={availableMwkUnits}
+        availableUsdtUnits={availableUsdtUnits}
+      />
     </div>
   );
 }

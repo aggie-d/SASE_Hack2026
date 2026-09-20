@@ -284,7 +284,6 @@ export default function AnalyticsPage() {
                 Recent Transactions
               </h2>
 
-              <p className="mt-1 text-xs text-slate-500">Outgoing only</p>
 
               <div className="mt-4 divide-y divide-slate-700/60">
                 {recentTransactions.map((transaction, i) => (
