@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, ArrowUpRight, Bell, Eye, EyeOff } from "lucide-react";
+import { BarChart3, ArrowUpRight, Eye, EyeOff } from "lucide-react";
+import { AppHeader } from "@/components/AppHeader";
 
 export default function DashboardPage() {
   const [showCardNumber, setShowCardNumber] = useState(false);
@@ -30,67 +31,8 @@ export default function DashboardPage() {
         <circle cx="200" cy="150" r="2.5" fill="#0066FF" />
       </svg>
 
-      {/* Top Navigation Bar */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-5">
-        <div className="bg-[#0B1528] rounded-2xl px-5 py-3.5 flex items-center justify-between shadow-lg border border-slate-800">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-1 font-bold text-xl tracking-tight">
-            <span className="text-[#C9A227] text-2xl">LT</span>
-            <span className="text-[#C9A227] ml-0.5">LAD</span>
-            <span className="text-white">Transfer</span>
-          </Link>
-
-          {/* Nav Items */}
-          <nav className="hidden md:flex items-center gap-2">
-            <Link 
-              href="/dashboard" 
-              className="px-4 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600/30 border border-blue-500/40 transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link 
-              href="/profile" 
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors"
-            >
-              Accounts
-            </Link>
-            <Link 
-              href="/deposit" 
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors"
-            >
-              Payments
-            </Link>
-          </nav>
-
-          {/* Right Header Actions */}
-          <div className="flex items-center gap-3.5">
-            {/* Notification Bell with Badge */}
-            <button 
-              type="button" 
-              className="relative p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-[#C9A227] transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-                2
-              </span>
-            </button>
-
-            {/* Profile Avatar Badge */}
-            <Link 
-              href="/profile" 
-              className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 transition-colors group"
-            >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#DFB338] to-[#B8911E] flex items-center justify-center text-stone-900 font-bold text-xs shadow-sm">
-                MW
-              </div>
-              <span className="hidden sm:inline text-xs font-semibold text-white group-hover:text-[#C9A227] transition-colors">
-                Michael Wright
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Consistent Navigation Header */}
+      <AppHeader active="dashboard" />
 
       {/* Main Content Area */}
       <main className="relative z-10 w-full max-w-7xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
