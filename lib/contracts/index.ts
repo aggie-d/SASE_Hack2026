@@ -279,6 +279,7 @@ export type DemoEventOutcome =
   | "reversal"
   | "refund"
   | "conversion_failed"
+  | "conversion_completed"
   | "provider_timeout";
 
 /** POST /api/v1/demo/events — operator-triggered provider outcome. */
@@ -369,6 +370,7 @@ export type ErrorCode =
   | "CARD_FROZEN"
   | "LIMIT_EXCEEDED"
   | "DEPOSIT_PENDING"
+  | "PROVIDER_FAILED"
   // access
   | "VERIFICATION_REQUIRED" // 403
   | "UNAUTHORIZED" // 401
