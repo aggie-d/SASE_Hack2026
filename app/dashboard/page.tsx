@@ -10,20 +10,39 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-stone-900 flex flex-col justify-between relative overflow-hidden font-sans">
-      {/* Background: Modern Dot-Matrix Grid with Subtle Fintech Glow & Circuit Accents */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-40"
-        style={{
-          backgroundImage: "radial-gradient(#94a3b8 1.25px, transparent 1.25px)",
-          backgroundSize: "26px 26px"
-        }}
-      />
-      {/* Soft Ambient Colorful Atmosphere */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[350px] bg-blue-400/10 rounded-full blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[#C9A227]/10 rounded-full blur-[140px] pointer-events-none" />
+      {/* Background: Animated Dot-Matrix Wave — 24 narrow strips for a smooth sine-wave sweep */}
+      {Array.from({ length: 24 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: `${(i * 100) / 24}%`,
+            width: `${100 / 24}%`,
+            backgroundImage: "radial-gradient(#475569 2px, transparent 2px)",
+            backgroundSize: "26px 26px",
+            backgroundAttachment: "fixed",
+            opacity: 0.5,
+            animation: `dot-wave 0.8s ease-in-out ${(i * 0.035).toFixed(3)}s`,
+          }}
+        />
+      ))}
 
-      {/* Subtle Circuit Tech Lines in Background (Matching Mockup Feel on Light Canvas) */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" xmlns="http://www.w3.org/2000/svg">
+      {/* Soft Ambient Colorful Atmosphere */}
+      <div
+        className="absolute top-0 left-1/4 w-[500px] h-[350px] bg-blue-400/10 rounded-full blur-[130px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.1s both" }}
+      />
+      <div
+        className="absolute bottom-0 right-1/4 w-[500px] h-[350px] bg-[#C9A227]/10 rounded-full blur-[140px] pointer-events-none"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.35s both" }}
+      />
+
+      {/* Subtle Circuit Tech Lines in Background */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.15s both" }}
+      >
         <path d="M0,150 L200,150 L260,210 L500,210" fill="none" stroke="#0066FF" strokeWidth="1.5" strokeDasharray="4 4" />
         <circle cx="260" cy="210" r="3.5" fill="#0066FF" />
         <path d="M1000,600 L1200,600 L1260,540 L1600,540" fill="none" stroke="#C9A227" strokeWidth="1.5" strokeDasharray="4 4" />
@@ -31,13 +50,80 @@ export default function DashboardPage() {
         <circle cx="200" cy="150" r="2.5" fill="#0066FF" />
       </svg>
 
+      {/* Floating Light Wisps — appear after the wave animation completes */}
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "18%",
+          left: "12%",
+          width: "80px",
+          height: "80px",
+          background: "rgba(96, 165, 250, 0.35)",
+          filter: "blur(40px)",
+          animation: "wisp-drift-1 12s ease-in-out 1.5s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "65%",
+          right: "10%",
+          width: "100px",
+          height: "100px",
+          background: "rgba(201, 162, 39, 0.3)",
+          filter: "blur(45px)",
+          animation: "wisp-drift-2 15s ease-in-out 2s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "40%",
+          left: "55%",
+          width: "60px",
+          height: "60px",
+          background: "rgba(96, 165, 250, 0.25)",
+          filter: "blur(35px)",
+          animation: "wisp-drift-3 10s ease-in-out 1.8s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "75%",
+          left: "30%",
+          width: "70px",
+          height: "70px",
+          background: "rgba(201, 162, 39, 0.25)",
+          filter: "blur(40px)",
+          animation: "wisp-drift-4 13s ease-in-out 2.2s infinite",
+        }}
+      />
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          top: "25%",
+          right: "25%",
+          width: "90px",
+          height: "90px",
+          background: "rgba(96, 165, 250, 0.2)",
+          filter: "blur(50px)",
+          animation: "wisp-drift-1 14s ease-in-out 2.5s infinite",
+        }}
+      />
+
       {/* Consistent Navigation Header */}
-      <AppHeader active="dashboard" />
+      <div style={{ animation: "wave-lift 0.9s ease-in-out 0.08s both" }}>
+        <AppHeader active="dashboard" />
+      </div>
 
       {/* Main Content Area */}
       <main className="relative z-10 w-full max-w-7xl mx-auto flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
         {/* Virtual Card Container — sized appropriately (max-w-[480px]) */}
-        <div className="w-full max-w-[480px] perspective-1000 mb-8">
+        <div
+          className="w-full max-w-[480px] perspective-1000 mb-8"
+          style={{ animation: "wave-lift 0.9s ease-in-out 0.22s both" }}
+        >
           <div 
             className="w-full aspect-[1.586/1] rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(11,21,40,0.35)] border border-slate-700/50 flex flex-col justify-between relative overflow-hidden text-white group transition-all duration-300 hover:shadow-[0_25px_60px_rgba(11,21,40,0.45)] hover:-translate-y-1"
             style={{
@@ -147,7 +233,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Action Buttons: Analytics & Deposit */}
-        <div className="w-full max-w-[480px] grid grid-cols-2 gap-4 sm:gap-5">
+        <div
+          className="w-full max-w-[480px] grid grid-cols-2 gap-4 sm:gap-5"
+          style={{ animation: "wave-lift 0.9s ease-in-out 0.36s both" }}
+        >
           {/* Analytics CTA */}
           <Link
             href="/analytics"
@@ -169,10 +258,12 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 py-5 text-center text-xs text-stone-500">
+      <footer
+        className="relative z-10 py-5 text-center text-xs text-stone-500"
+        style={{ animation: "wave-lift 0.9s ease-in-out 0.45s both" }}
+      >
         <p>© 2026 LADTransfer. All rights reserved.</p>
       </footer>
     </div>
   );
 }
-
