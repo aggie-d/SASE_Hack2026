@@ -124,6 +124,19 @@ export type MeResponse = {
   role: UserRole;
 };
 
+/**
+ * POST /api/v1/me/verify — simulated onboarding (NEXT_PUBLIC_DEMO_MODE only).
+ *
+ * Marks the signed-in user `verified` so they can quote, convert, and use
+ * cards. No identity documents are collected; this stands in for KYC in the
+ * demo. Idempotent: an already-verified user gets 200 with their profile.
+ * Response is MeResponse.
+ */
+export type VerifyMeRequest = {
+  /** Optional fictional display name from the onboarding form (2–80 chars). */
+  display_name?: string;
+};
+
 // ─── Wallets ────────────────────────────────────────────────────────────────
 
 /** GET /api/v1/wallets — one entry per user-owned account (mwk_wallet, usdt_wallet, card_funding). */
