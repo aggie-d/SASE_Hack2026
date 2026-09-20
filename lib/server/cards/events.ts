@@ -312,6 +312,79 @@ async function processRefund(
   });
 }
 
+type ClaimResult =
+  | { kind: "fresh"; event: ProviderEventRow }
+  | { kind: "retry"; event: ProviderEventRow }
+  | { kind: "processed"; event: ProviderEventRow };
+
+/**
+ * Insert the provider_events row for this demo event, or reuse the existing
+ * one. A row that already reached `processed` is a true duplicate; a row left
+ * `failed` (handler threw) or `pending` (crashed mid-flight) is reclaimed so
+ * the operator can simply fire the same event again.
+ *
+ * The row id is reused as the ledger operation_id, so a retry hits the same
+ * (operation_id, type) idempotency guard in ledger_post_journal and can never
+ * double-post a journal that did land on the first attempt.
+ */
+async function claimDemoEvent(
+  operationId: string,
+  outcome: CardOutcome,
+  eventId: string,
+): Promise<ClaimResult> {
+  const admin = createAdminClient();
+  const columns = "id, event_id, status, attempts";
+
+  const inserted = await admin
+    .from("provider_events")
+    .insert({
+      provider: "demo",
+      event_id: eventId,
+      payload: { operation_id: operationId, outcome },
+      status: "pending",
+      attempts: 1,
+    })
+    .select(columns)
+    .single<ProviderEventRow>();
+
+  if (!inserted.error) {
+    return { kind: "fresh", event: inserted.data };
+  }
+
+  if (inserted.error.code !== "23505") {
+    throw inserted.error;
+  }
+
+  const { data: existing, error: existingError } = await admin
+    .from("provider_events")
+    .select(columns)
+    .eq("provider", "demo")
+    .eq("event_id", eventId)
+    .single<ProviderEventRow>();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existing.status === "processed") {
+    return { kind: "processed", event: existing };
+  }
+
+  // failed or pending: take the row back and count the attempt.
+  const { data: reclaimed, error: reclaimError } = await admin
+    .from("provider_events")
+    .update({ status: "pending", attempts: existing.attempts + 1 })
+    .eq("id", existing.id)
+    .select(columns)
+    .single<ProviderEventRow>();
+
+  if (reclaimError) {
+    throw reclaimError;
+  }
+
+  return { kind: "retry", event: reclaimed };
+}
+
 export async function processDemoCardEvent(params: {
   operationId: string;
   outcome: DemoEventOutcome;
@@ -327,40 +400,11 @@ export async function processDemoCardEvent(params: {
   const eventId =
     `demo:${params.operationId}:${params.outcome}`;
 
-  const inserted = await admin
-    .from("provider_events")
-    .insert({
-      provider: "demo",
-      event_id: eventId,
-      payload: {
-        operation_id: params.operationId,
-        outcome: params.outcome,
-      },
-      status: "pending",
-      attempts: 1,
-    })
-    .select("id, event_id, status, attempts")
-    .single<ProviderEventRow>();
+  const claimed = await claimDemoEvent(params.operationId, params.outcome, eventId);
 
-  if (inserted.error) {
-    if (inserted.error.code !== "23505") {
-      throw inserted.error;
-    }
-
-    const { data: duplicate, error: duplicateError } =
-      await admin
-        .from("provider_events")
-        .select("id, event_id, status, attempts")
-        .eq("provider", "demo")
-        .eq("event_id", eventId)
-        .single<ProviderEventRow>();
-
-    if (duplicateError) {
-      throw duplicateError;
-    }
-
+  if (claimed.kind === "processed") {
     return {
-      event_id: duplicate.event_id,
+      event_id: claimed.event.event_id,
       operation_id: params.operationId,
       outcome: params.outcome,
       applied: false,
@@ -368,7 +412,7 @@ export async function processDemoCardEvent(params: {
     };
   }
 
-  const event = inserted.data;
+  const event = claimed.event;
 
   try {
     const { data: authorization, error } = await admin
