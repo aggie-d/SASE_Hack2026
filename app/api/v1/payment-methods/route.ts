@@ -32,6 +32,11 @@ export const POST = route(async (req) => {
       message: "Name and number are required.",
     });
   }
+  if (body.type !== "bank" && body.type !== "mobile") {
+    throw new ApiHttpError("VALIDATION_ERROR", {
+      message: "Card payment methods are not supported. Use bank transfer or mobile money.",
+    });
+  }
 
   const admin = createAdminClient();
   const { data: userData, error } = await admin.auth.admin.getUserById(userId);
@@ -54,9 +59,6 @@ export const POST = route(async (req) => {
     subtitle,
     icon_type: body.type,
     last4,
-    card_number: body.type === "card" ? cleanNum : undefined,
-    cvv: body.cvv?.trim() || undefined,
-    expiry: body.expiry?.trim() || undefined,
     created_at: new Date().toISOString(),
   };
 

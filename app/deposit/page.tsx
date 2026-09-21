@@ -2,11 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { 
-  Smartphone, 
   Building2, 
-  CreditCard, 
   AlertCircle, 
   X, 
   ChevronDown, 
@@ -39,14 +36,6 @@ function formatRate(rate: number): string {
   return rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals });
 }
 
-type PaymentMethod = {
-  id: string;
-  type: "card" | "bank" | "mobile";
-  title: string;
-  subtitle: string;
-  iconType: "card" | "bank" | "mobile";
-};
-
 const CURRENCIES: CurrencyOption[] = [
   { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67 },
   { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50 },
@@ -77,11 +66,7 @@ export default function DepositPage() {
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
   const [amount, setAmount] = useState<string>("");
-  const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
-  
-  // Payment methods state
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>("");
+  const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank">("mobile");
   
   // Action & Feedback state
   const [isDepositing, setIsDepositing] = useState(false);
@@ -91,7 +76,7 @@ export default function DepositPage() {
     amount: string;
     netUsd: string;
     currency: string;
-    cardName: string;
+    sourceName: string;
     /** Rate the server applied, e.g. "1 USD = 1,736.97 MWK · 1 USD = 1.0005 USDT". */
     appliedRate: string | null;
     /** "jsdelivr@2026-09-20" | "pinned@pinned" | "mock" */
@@ -125,30 +110,6 @@ export default function DepositPage() {
       cancelled = true;
     };
   }, []);
-
-  // Load linked payment methods on mount
-  useEffect(() => {
-    async function loadPaymentMethods() {
-      try {
-        const res = await fetch("/api/v1/payment-methods");
-        if (res.ok) {
-          const data = await res.json();
-          const methods = (data.payment_methods as PaymentMethod[]) || [];
-          setPaymentMethods(methods);
-          const firstCard = methods.find((m) => m.type === "card");
-          if (firstCard) {
-            setSelectedPaymentMethodId(firstCard.id);
-            setSelectedMethod("card");
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load payment methods", e);
-      }
-    }
-    loadPaymentMethods();
-  }, []);
-
-  const cardMethods = paymentMethods.filter((m) => m.type === "card");
 
   // Rates in use: live if we have them, else the offline table.
   const liveRates = rates.status === "live" ? rates.data.rates : null;
@@ -192,11 +153,6 @@ export default function DepositPage() {
       return;
     }
 
-    if (selectedMethod === "card" && cardMethods.length === 0) {
-      setErrorMsg("Please link a payment card in your profile before depositing.");
-      return;
-    }
-
     setIsDepositing(true);
 
     try {
@@ -207,7 +163,6 @@ export default function DepositPage() {
         },
         body: JSON.stringify({
           method: selectedMethod,
-          payment_method_id: selectedPaymentMethodId || cardMethods[0]?.id,
           amount: rawNumber.toString(),
           currency: selectedCurrency.code,
           net_usd: netUsd,
@@ -238,9 +193,11 @@ export default function DepositPage() {
             : `1 USD = ${formatRate(Number(applied.per_usd))} ${applied.currency} · 1 USD = ${Number(applied.usdt_per_usd).toFixed(4)} USDT`
           : null,
         rateSource: applied?.source ?? null,
-        cardName: data.payment_method?.title
+        sourceName: data.payment_method?.title
           ? `${data.payment_method.title} (${data.payment_method.subtitle})`
-          : "Linked Card",
+          : selectedMethod === "mobile"
+            ? "Mobile Money"
+            : "Bank Transfer",
       });
       setShowSuccessModal(true);
     } catch (err: any) {
@@ -506,7 +463,7 @@ export default function DepositPage() {
                 Payment Methods
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* 1. Mobile Money */}
                 <button
                   type="button"
@@ -554,108 +511,10 @@ export default function DepositPage() {
                       <span className="w-2 h-2 rounded-full bg-red-600 inline-block" /> NBS Bank
                     </span>
                   </div>
-                  <span className="text-[10px] text-stone-500 font-medium">1-2 hrs</span>
-                </button>
-
-                {/* 3. Credit/Debit Card */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedMethod("card")}
-                  className={`relative rounded-2xl p-4 flex flex-col items-center justify-between min-h-[110px] border-2 transition-all text-center ${
-                    selectedMethod === "card"
-                      ? "border-[#C9A227] bg-[#FDFBF3] shadow-md ring-2 ring-[#C9A227]/20"
-                      : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50"
-                  }`}
-                >
-                  <span className="text-xs font-bold text-stone-800">Credit/Debit Card</span>
-                  <div className="flex items-center justify-center gap-2 my-2">
-                    <span className="text-xs font-extrabold tracking-tighter text-blue-900 italic">
-                      VISA
-                    </span>
-                    <div className="flex">
-                      <div className="w-4 h-4 rounded-full bg-[#EB001B]" />
-                      <div className="w-4 h-4 rounded-full bg-[#F79E1B] -ml-1.5" />
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-stone-500 font-medium">Linked Card</span>
+                  <span className="text-[10px] text-stone-500 font-medium">Instant</span>
                 </button>
               </div>
             </div>
-
-            {/* Linked Card Selector Panel (when Card method is selected) */}
-            {selectedMethod === "card" && (
-              <div className="rounded-2xl bg-stone-50 border border-stone-200/90 p-4 space-y-3 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">
-                    Deposit From Linked Card
-                  </span>
-                  <Link
-                    href="/profile"
-                    className="text-xs font-bold text-[#DFB338] hover:underline flex items-center gap-1"
-                  >
-                    + Manage Cards
-                  </Link>
-                </div>
-
-                {cardMethods.length === 0 ? (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3 text-left">
-                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-amber-900">
-                        No linked card found
-                      </p>
-                      <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                        Please link a credit or debit card in your profile before depositing funds.
-                      </p>
-                      <Link
-                        href="/profile"
-                        className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] text-stone-950 text-xs font-bold transition-all shadow-xs hover:brightness-105"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>Link a Card in Profile</span>
-                      </Link>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {cardMethods.map((m) => {
-                      const isSelected = selectedPaymentMethodId === m.id || (!selectedPaymentMethodId && cardMethods[0]?.id === m.id);
-                      return (
-                        <label
-                          key={m.id}
-                          className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${
-                            isSelected
-                              ? "bg-white border-[#DFB338] shadow-sm ring-2 ring-[#DFB338]/30"
-                              : "bg-white/60 border-stone-200 hover:bg-white"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="radio"
-                              name="selectedCard"
-                              value={m.id}
-                              checked={isSelected}
-                              onChange={() => setSelectedPaymentMethodId(m.id)}
-                              className="w-4 h-4 text-[#DFB338] focus:ring-[#DFB338] cursor-pointer"
-                            />
-                            <div className="w-8 h-8 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center text-[#DFB338]">
-                              <CreditCard className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-stone-900">{m.title}</p>
-                              <p className="text-[11px] font-mono text-stone-500">{m.subtitle}</p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-md border border-green-200">
-                            Active
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Error Message Banner */}
             {errorMsg && (
@@ -669,7 +528,7 @@ export default function DepositPage() {
             <div className="pt-2 flex flex-col items-center gap-3">
               <button
                 type="submit"
-                disabled={isDepositing || rawNumber <= 0 || (selectedMethod === "card" && cardMethods.length === 0)}
+                disabled={isDepositing || rawNumber <= 0}
                 className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               >
                 {isDepositing ? (
@@ -732,7 +591,7 @@ export default function DepositPage() {
               <div className="flex justify-between items-center text-stone-600">
                 <span>Charged From:</span>
                 <span className="font-medium text-stone-900">
-                  {successData.cardName}
+                  {successData.sourceName}
                 </span>
               </div>
               <div className="flex justify-between items-center text-stone-600">

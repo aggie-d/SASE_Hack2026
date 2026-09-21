@@ -10,7 +10,7 @@ import { formatMinorUnits } from "@/lib/contracts/money";
 import crypto from "node:crypto";
 
 /**
- * POST /api/v1/deposits — card / bank / mobile-money deposit credited to the
+ * POST /api/v1/deposits — bank / mobile-money deposit credited to the
  * USDT wallet (demo: instantly confirmed).
  *
  * Pricing is server-authoritative. The client may send its own preview
@@ -33,7 +33,7 @@ export const POST = route(async (req) => {
     payment_method_id?: string;
   };
 
-  const method = body.method || "card";
+  const method = body.method === "bank" ? "bank" : "mobile";
   const currency = (body.currency || "USD").toUpperCase();
   const paymentMethodId = body.payment_method_id;
 
@@ -79,18 +79,9 @@ export const POST = route(async (req) => {
   }
 
   const paymentMethods: PaymentMethodItem[] = userData.user.user_metadata?.payment_methods || [];
-
-  // If method is card, find or verify the linked card
-  let usedMethod = paymentMethods.find((m) => m.id === paymentMethodId && m.type === "card");
-  if (!usedMethod) {
-    usedMethod = paymentMethods.find((m) => m.type === "card");
-  }
-
-  if (method === "card" && !usedMethod) {
-    throw new ApiHttpError("VALIDATION_ERROR", {
-      message: "No linked card found. Please link an account in your profile first.",
-    });
-  }
+  const usedMethod =
+    paymentMethods.find((m) => m.id === paymentMethodId && m.type === method) ??
+    paymentMethods.find((m) => m.type === method);
 
   // amountUnits (micro-USDT) was priced above by priceDeposit — bigint end to end.
   if (amountUnits <= 0n) {
@@ -127,16 +118,20 @@ export const POST = route(async (req) => {
   await admin.from("deposits").insert({
     id: depositId,
     user_id: userId,
-    method: method === "mobile_money" ? "mobile_money" : "bank_transfer",
+    method: method === "mobile" ? "mobile_money" : "bank_transfer",
     amount_units: amountUnits.toString(),
     asset: "USDT",
-    provider: method === "card" ? "linked_card" : "mock",
+    provider: "mock",
     provider_reference: providerRef,
     status: "confirmed",
   });
 
   // 3. Create notification for the user
-  const cardTitle = usedMethod ? `${usedMethod.title} (${usedMethod.subtitle})` : "Linked Card";
+  const sourceTitle = usedMethod
+    ? `${usedMethod.title} (${usedMethod.subtitle})`
+    : method === "mobile"
+      ? "Mobile Money"
+      : "Bank Transfer";
   const formattedDeposit = currency === "USD"
     ? `$${netUsd.toFixed(2)} USD`
     : `${rawAmount.toLocaleString()} ${currency} ($${netUsd.toFixed(2)} USDT)`;
@@ -145,7 +140,7 @@ export const POST = route(async (req) => {
   const newNotification = {
     id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     title: "Deposit Confirmed",
-    message: `Your deposit of ${formattedDeposit} from ${cardTitle} was credited to your USDT Wallet.`,
+    message: `Your deposit of ${formattedDeposit} from ${sourceTitle} was credited to your USDT Wallet.`,
     time: "Just now",
     unread: true,
     created_at: new Date().toISOString(),
@@ -178,6 +173,9 @@ export const POST = route(async (req) => {
       source: rateSource,
     },
     target_wallet: "USDT Wallet",
-    payment_method: usedMethod || { title: "Credit/Debit Card", subtitle: "Card" },
+    payment_method: usedMethod || {
+      title: method === "mobile" ? "Mobile Money" : "Bank Transfer",
+      subtitle: method === "mobile" ? "Airtel / Mpamba" : "Bank",
+    },
   });
 });
