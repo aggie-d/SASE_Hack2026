@@ -9,10 +9,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ApiHttpError } from "@/lib/server/http";
 import { getJournalsForOperation } from "@/lib/server/ledger/post";
 import { MockFxProvider } from "@/lib/server/providers/mock-fx";
-import { calculateMockQuote } from "@/lib/server/fx-calculation";
+import { calculateQuote, QUOTE_FEE_BPS } from "@/lib/server/fx-calculation";
+import { getMwkPerUsdt, type RateSource } from "@/lib/server/rates";
 
-const RATE_TAMBALA = "200000";
-const FEE_BPS = 200;
 const QUOTE_LIFETIME_MS = 5 * 60_000;
 const MAX_BIGINT = 9_223_372_036_854_775_807n;
 
@@ -114,25 +113,55 @@ type QuoteRow = {
   expires_at: string; provider: string; rounding: string;
 };
 
+/**
+ * quotes.rate_string: decimal "MWK per USDT" (e.g. "1736.150000"). Rows written
+ * before live rates hold the legacy integer tambala form ("200000" = 2000.00),
+ * recognisable by having no decimal point.
+ */
+function rateFromRow(rateString: string): string {
+  return rateString.includes(".") ? rateString : (BigInt(rateString) / 100n).toString();
+}
+
+/** quotes.provider encodes the rate provenance: "live:jsdelivr@2026-09-20" | "pinned" | "mock". */
+function providerTag(rate: { source: RateSource; provider: string; date: string }): string {
+  return rate.source === "live" ? `live:${rate.provider}@${rate.date}` : rate.source;
+}
+function rateProvenance(provider: string): { rate_source: RateSource; rate_date: string } {
+  if (provider.startsWith("live:")) {
+    return { rate_source: "live", rate_date: provider.split("@")[1] ?? "unknown" };
+  }
+  return provider === "pinned"
+    ? { rate_source: "pinned", rate_date: "pinned" }
+    : { rate_source: "mock", rate_date: "mock" };
+}
+
 function quoteResponse(row: QuoteRow): QuoteResponse {
   return {
     quote_id: row.id, source: money("MWK", parseMinorUnits(row.source_units)),
     fee: money("MWK", parseMinorUnits(row.fee_units)),
     destination: money("USDT", parseMinorUnits(row.destination_units)),
-    rate: { value: (BigInt(row.rate_string) / 100n).toString(), meaning: "MWK per USDT" }, fee_bps: FEE_BPS,
+    rate: { value: rateFromRow(row.rate_string), meaning: "MWK per USDT" },
+    ...rateProvenance(row.provider),
+    fee_bps: QUOTE_FEE_BPS,
     rounding: "floor", expires_at: row.expires_at, mode: "mock",
   };
 }
 
+/**
+ * Lock a rate for QUOTE_LIFETIME_MS. The rate is fetched once here and stored
+ * on the row; POST /conversions executes at the stored destination_units and
+ * never re-prices, so a moving market cannot change what the user was shown.
+ */
 export async function createQuote(userId: string, units: bigint): Promise<QuoteResponse> {
   checkedUnits(units);
-  const { fee, destination } = calculateMockQuote(units);
+  const rate = await getMwkPerUsdt();
+  const { fee, destination } = calculateQuote(units, rate.rate);
   if (destination <= 0n || destination > MAX_BIGINT) throw new ApiHttpError("VALIDATION_ERROR", { message: "Amount is outside the supported quote range." });
   const { data, error } = await createAdminClient().from("quotes").insert({
     user_id: userId, pair: "MWK/USDT", source_units: units.toString(),
     fee_units: fee.toString(), destination_units: destination.toString(),
-    rate_string: RATE_TAMBALA, expires_at: new Date(Date.now() + QUOTE_LIFETIME_MS).toISOString(),
-    provider: "mock", rounding: "floor",
+    rate_string: rate.rate, expires_at: new Date(Date.now() + QUOTE_LIFETIME_MS).toISOString(),
+    provider: providerTag(rate), rounding: "floor",
   }).select("*").single<QuoteRow>();
   if (error) dbError(error);
   return quoteResponse(data);

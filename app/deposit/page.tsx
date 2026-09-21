@@ -89,6 +89,10 @@ export default function DepositPage() {
     netUsd: string;
     currency: string;
     cardName: string;
+    /** Rate the server applied, e.g. "1 USD = 1,736.97 MWK · 1 USD = 1.0005 USDT". */
+    appliedRate: string | null;
+    /** "jsdelivr@2026-09-20" | "pinned@pinned" | "mock" */
+    rateSource: string | null;
   } | null>(null);
 
   // Cancel Modal state
@@ -215,10 +219,21 @@ export default function DepositPage() {
       }
 
       const data = await res.json();
+      // Show what the SERVER credited and the rate it applied — not our preview.
+      // If the market moved between page load and submit, this is the truth.
+      const applied = data.applied_rate as
+        | { currency: string; per_usd: string; usdt_per_usd: string; source: string }
+        | undefined;
       setSuccessData({
-        amount: `${usdtEquivalent.toFixed(2)} USDT`,
+        amount: typeof data.amount === "string" ? data.amount : `${usdtEquivalent.toFixed(2)} USDT`,
         netUsd: netUsd.toFixed(2),
         currency: selectedCurrency.code,
+        appliedRate: applied
+          ? applied.currency === "USD"
+            ? `1 USD = ${Number(applied.usdt_per_usd).toFixed(4)} USDT`
+            : `1 USD = ${formatRate(Number(applied.per_usd))} ${applied.currency} · 1 USD = ${Number(applied.usdt_per_usd).toFixed(4)} USDT`
+          : null,
+        rateSource: applied?.source ?? null,
         cardName: data.payment_method?.title
           ? `${data.payment_method.title} (${data.payment_method.subtitle})`
           : "Linked Card",
@@ -661,6 +676,19 @@ export default function DepositPage() {
                   USDT Wallet
                 </span>
               </div>
+              {successData.appliedRate && (
+                <div className="pt-2 border-t border-stone-200 flex justify-between items-start gap-3 text-xs text-stone-500">
+                  <span className="shrink-0">Rate applied:</span>
+                  <span className="text-right font-medium text-stone-700">
+                    {successData.appliedRate}
+                    {successData.rateSource && successData.rateSource !== "mock" && (
+                      <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md align-middle">
+                        {successData.rateSource.startsWith("pinned") ? "PINNED" : "LIVE"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2.5">

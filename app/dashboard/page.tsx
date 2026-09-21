@@ -288,9 +288,9 @@ export default function DashboardPage() {
                   Current Balance
                 </p>
                 <p className="text-2xl sm:text-3xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight text-[#DFB338]">
-                  ${rawCardFundingBalance}{" "}
+                  {rawCardFundingBalance}{" "}
                   <span className="text-sm sm:text-base lg:text-2xl xl:text-3xl font-bold text-white/90">
-                    USD
+                    USDT
                   </span>
                 </p>
               </div>

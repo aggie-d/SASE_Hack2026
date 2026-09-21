@@ -16,7 +16,12 @@ import {
   formatMinorUnits,
   parseMinorUnits,
 } from "@/lib/contracts/money";
-import type { FundCardResponse } from "@/lib/contracts";
+import type { FundCardResponse, RatesResponse } from "@/lib/contracts";
+
+/** "$0.9995" — USD value of 1 USDT from the live USDT-per-USD rate. */
+function usdPerUsdt(usdtPerUsd: number): string {
+  return (1 / usdtPerUsd).toFixed(4);
+}
 
 interface FundCardModalProps {
   isOpen: boolean;
@@ -50,6 +55,25 @@ export function FundCardModal({
     newCardBalanceUsd: string;
   } | null>(null);
   const [countdown, setCountdown] = useState(5);
+
+  // Live USDT/USD reference rate for the labels. Funding is USDT → USDT (no
+  // FX happens), so this is informational: it stops us calling USDT "USD".
+  const [usdtPerUsd, setUsdtPerUsd] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetch("/api/v1/rates?symbols=USDT")
+      .then((r) => (r.ok ? (r.json() as Promise<RatesResponse>) : Promise.reject(new Error(String(r.status)))))
+      .then((d) => {
+        if (!cancelled && typeof d.rates.USDT === "number") setUsdtPerUsd(d.rates.USDT);
+      })
+      .catch(() => {
+        /* label falls back to "USD-pegged" */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   const handleDone = () => {
     if (typeof window !== "undefined") {
@@ -251,7 +275,7 @@ export function FundCardModal({
               <div className="flex justify-between items-center text-slate-400">
                 <span>Funded Amount:</span>
                 <span className="font-bold text-green-400 text-base">
-                  +${successData.amountUsd} USD
+                  +{successData.amountUsd} USDT
                 </span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
@@ -271,7 +295,7 @@ export function FundCardModal({
               <div className="flex justify-between items-center text-slate-300">
                 <span>New Card Balance:</span>
                 <span className="font-extrabold text-[#DFB338] text-lg">
-                  ${successData.newCardBalanceUsd} USD
+                  {successData.newCardBalanceUsd} USDT
                 </span>
               </div>
             </div>
@@ -354,7 +378,7 @@ export function FundCardModal({
                       To: Virtual Card
                     </span>
                     <span className="text-sm font-bold text-[#DFB338] font-mono">
-                      ${activeCardBalance || currentCardBalanceUsd} USD
+                      {activeCardBalance || currentCardBalanceUsd} USDT
                     </span>
                   </div>
                   <div className="w-9 h-9 rounded-xl bg-[#DFB338]/15 border border-[#DFB338]/30 flex items-center justify-center text-[#DFB338] shrink-0 font-mono text-xs font-bold">
@@ -435,20 +459,42 @@ export function FundCardModal({
                     <span className="font-semibold text-green-400">$0.00 (Free)</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Conversion Rate:</span>
-                    <span className="font-semibold text-slate-200">1 USDT = $1.00 USD (1:1 Direct)</span>
+                    <span>Conversion:</span>
+                    <span className="font-semibold text-slate-200">None — USDT wallet → USDT card</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Reference rate:</span>
+                    <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+                      {usdtPerUsd !== null ? (
+                        <>
+                          1 USDT = ${usdPerUsdt(usdtPerUsd)} USD
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-green-400 bg-green-500/10 border border-green-500/30 px-1.5 py-0.5 rounded-md">
+                            <span className="w-1 h-1 rounded-full bg-green-400" /> LIVE
+                          </span>
+                        </>
+                      ) : (
+                        "1 USDT ≈ $1.00 USD (USD-pegged)"
+                      )}
+                    </span>
                   </div>
                   <div className="h-[1px] bg-slate-800 my-1" />
                   <div className="flex justify-between items-center text-sm font-semibold text-slate-200">
                     <span>Net Card Top-Up:</span>
-                    <span className="text-green-400 font-bold font-mono text-base">
-                      +${rawUsdtNumber.toFixed(2)} USD
+                    <span className="text-right">
+                      <span className="text-green-400 font-bold font-mono text-base">
+                        +{rawUsdtNumber.toFixed(2)} USDT
+                      </span>
+                      {usdtPerUsd !== null && rawUsdtNumber > 0 && (
+                        <span className="block text-[10px] text-slate-500 font-mono">
+                          ≈ ${(rawUsdtNumber / usdtPerUsd).toFixed(2)} USD
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span>Projected Card Balance:</span>
                     <span className="text-[#DFB338] font-bold font-mono">
-                      ${activeCardBalance || currentCardBalanceUsd} → ${projectedCardBalance} USD
+                      {activeCardBalance || currentCardBalanceUsd} → {projectedCardBalance} USDT
                     </span>
                   </div>
                 </div>
