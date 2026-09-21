@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import type { RatesResponse } from "@/lib/contracts";
+import { formatAmountInput, normalizeAmountInput } from "@/lib/format-amount";
 
 type CurrencyOption = {
   code: string;
@@ -28,6 +29,9 @@ type RatesState =
   | { status: "loading" }
   | { status: "live"; data: RatesResponse }
   | { status: "offline" };
+
+/** Deposit fee as a percentage. Server enforces the same (DEPOSIT_FEE_BPS = 100). */
+const DEPOSIT_FEE_PERCENT = 1;
 
 /** "1 USD = X CODE" with enough precision to be meaningful for both 0.78 and 25,450. */
 function formatRate(rate: number): string {
@@ -88,6 +92,10 @@ export default function DepositPage() {
     netUsd: string;
     currency: string;
     cardName: string;
+    /** Rate the server applied, e.g. "1 USD = 1,736.97 MWK · 1 USD = 1.0005 USDT". */
+    appliedRate: string | null;
+    /** "jsdelivr@2026-09-20" | "pinned@pinned" | "mock" */
+    rateSource: string | null;
   } | null>(null);
 
   // Cancel Modal state
@@ -151,7 +159,8 @@ export default function DepositPage() {
   // Dynamic calculations based on selected currency
   const rawNumber = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
   const grossUsd = rawNumber > 0 ? rawNumber / ratePerUsd : 0;
-  const feeUsd = rawNumber > 0 ? 0.5 : 0;
+  // 1% fee, floored to the cent — mirrors DEPOSIT_FEE_BPS on the server.
+  const feeUsd = Math.floor(grossUsd * DEPOSIT_FEE_PERCENT) / 100;
   const netUsd = Math.max(0, grossUsd - feeUsd);
   const usdtEquivalent = netUsd * usdtPerUsd;
   const isMwk = selectedCurrency.code === "MWK";
@@ -160,6 +169,7 @@ export default function DepositPage() {
     const found = CURRENCIES.find((c) => c.code === code);
     if (found) {
       setSelectedCurrency(found);
+      setAmount("");
     }
   };
 
@@ -213,10 +223,21 @@ export default function DepositPage() {
       }
 
       const data = await res.json();
+      // Show what the SERVER credited and the rate it applied — not our preview.
+      // If the market moved between page load and submit, this is the truth.
+      const applied = data.applied_rate as
+        | { currency: string; per_usd: string; usdt_per_usd: string; source: string }
+        | undefined;
       setSuccessData({
-        amount: `${usdtEquivalent.toFixed(2)} USDT`,
+        amount: typeof data.amount === "string" ? data.amount : `${usdtEquivalent.toFixed(2)} USDT`,
         netUsd: netUsd.toFixed(2),
         currency: selectedCurrency.code,
+        appliedRate: applied
+          ? applied.currency === "USD"
+            ? `1 USD = ${Number(applied.usdt_per_usd).toFixed(4)} USDT`
+            : `1 USD = ${formatRate(Number(applied.per_usd))} ${applied.currency} · 1 USD = ${Number(applied.usdt_per_usd).toFixed(4)} USDT`
+          : null,
+        rateSource: applied?.source ?? null,
         cardName: data.payment_method?.title
           ? `${data.payment_method.title} (${data.payment_method.subtitle})`
           : "Linked Card",
@@ -381,9 +402,11 @@ export default function DepositPage() {
               <div className="relative">
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0"
+                  onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                  onBlur={() => setAmount((v) => normalizeAmountInput(v))}
+                  placeholder="0.00"
                   className="w-full rounded-2xl border-2 border-stone-300 focus:border-[#C9A227] pl-5 pr-36 py-4 text-xl sm:text-2xl font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-[#C9A227]/15 transition-all shadow-inner"
                 />
 
@@ -416,7 +439,7 @@ export default function DepositPage() {
                     Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                    {usdtEquivalent.toFixed(2)}{" "}
+                    {usdtEquivalent.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                     <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
                 </div>
@@ -447,7 +470,7 @@ export default function DepositPage() {
                     )}
                   </p>
                   <p className="text-xs text-stone-500">
-                    Total Fee: ${feeUsd.toFixed(2)} USD
+                    Total Fee ({DEPOSIT_FEE_PERCENT}%): ${feeUsd.toFixed(2)} USD
                   </p>
                 </div>
               </div>
@@ -455,9 +478,6 @@ export default function DepositPage() {
               {/* Dedicated Stable Coin to USD Conversion Rate Row */}
               <div className="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500 flex items-center justify-center text-[7px] text-white font-bold">
-                    T
-                  </span>
                   <span className="font-semibold text-stone-800">USD value after fee:</span>
                   <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                     ${netUsd.toFixed(2)} USD
@@ -649,7 +669,7 @@ export default function DepositPage() {
             <div className="pt-2 flex flex-col items-center gap-3">
               <button
                 type="submit"
-                disabled={isDepositing || (selectedMethod === "card" && cardMethods.length === 0)}
+                disabled={isDepositing || rawNumber <= 0 || (selectedMethod === "card" && cardMethods.length === 0)}
                 className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               >
                 {isDepositing ? (
@@ -722,6 +742,19 @@ export default function DepositPage() {
                   USDT Wallet
                 </span>
               </div>
+              {successData.appliedRate && (
+                <div className="pt-2 border-t border-stone-200 flex justify-between items-start gap-3 text-xs text-stone-500">
+                  <span className="shrink-0">Rate applied:</span>
+                  <span className="text-right font-medium text-stone-700">
+                    {successData.appliedRate}
+                    {successData.rateSource && successData.rateSource !== "mock" && (
+                      <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md align-middle">
+                        {successData.rateSource.startsWith("pinned") ? "PINNED" : "LIVE"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2.5">

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { toMinorUnits } from "@/lib/contracts/money";
 import { verifyMockEvent } from "@/lib/server/deposits-fx";
-import { calculateMockQuote } from "@/lib/server/fx-calculation";
+import { calculateMockQuote, calculateQuote } from "@/lib/server/fx-calculation";
 
 const SECRET = "a-sufficiently-long-unique-test-webhook-secret";
 const event = {
@@ -22,6 +22,20 @@ describe("mock quote", () => {
 
   it("floors a non-integral micro-USDT destination", () => {
     expect(calculateMockQuote(toMinorUnits("1", "MWK"))).toEqual({ fee: 2n, destination: 490n });
+  });
+
+  it("prices at a live decimal rate with the same fee and floor policy", () => {
+    // 50,000 MWK, 2% fee → 49,000 MWK; at 1736.15 MWK/USDT → 28.2233678... USDT, floored to micro-USDT.
+    const { fee, destination } = calculateQuote(toMinorUnits("50000", "MWK"), "1736.150000");
+    expect(fee).toBe(100000n);
+    expect(destination).toBe(28223367n);
+    // A better rate for the customer (fewer kwacha per USDT) buys more USDT.
+    expect(calculateQuote(toMinorUnits("50000", "MWK"), "1700").destination).toBeGreaterThan(destination);
+  });
+
+  it("rejects a zero or malformed rate", () => {
+    expect(() => calculateQuote(toMinorUnits("50000", "MWK"), "0")).toThrow();
+    expect(() => calculateQuote(toMinorUnits("50000", "MWK"), "abc")).toThrow();
   });
 });
 
