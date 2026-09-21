@@ -27,6 +27,11 @@ export function AppHeader({ active, onInterceptNavigate }: AppHeaderProps) {
           fetch("/api/v1/notifications"),
         ]);
 
+        if (meRes.status === 401 && isMounted) {
+          router.push("/login");
+          return;
+        }
+
         if (meRes.ok && isMounted) {
           const meData = (await meRes.json()) as MeResponse;
           if (meData.display_name) {
