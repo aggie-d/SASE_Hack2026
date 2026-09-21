@@ -20,7 +20,6 @@ type CurrencyOption = {
   name: string;
   flag: string;
   ratePerUsd: number;
-  defaultAmount: string;
 };
 
 type PaymentMethod = {
@@ -32,35 +31,35 @@ type PaymentMethod = {
 };
 
 const CURRENCIES: CurrencyOption[] = [
-  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67, defaultAmount: "65" },
-  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50, defaultAmount: "2,000" },
-  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25, defaultAmount: "120" },
-  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92, defaultAmount: "20" },
-  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78, defaultAmount: "15" },
-  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00, defaultAmount: "250,000" },
-  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50, defaultAmount: "1,500" },
-  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00, defaultAmount: "2,500" },
-  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50, defaultAmount: "2,000" },
-  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00, defaultAmount: "25,000" },
-  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00, defaultAmount: "5,000" },
-  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00, defaultAmount: "35,000" },
-  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33, defaultAmount: "50,000" },
-  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70, defaultAmount: "80" },
-  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00, defaultAmount: "25,000" },
-  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50, defaultAmount: "1,000" },
-  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50, defaultAmount: "5,000" },
-  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35, defaultAmount: "25" },
-  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80, defaultAmount: "600" },
-  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40, defaultAmount: "500" },
-  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00, defaultAmount: "400,000" },
-  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25, defaultAmount: "300" },
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67 },
+  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50 },
+  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25 },
+  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92 },
+  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78 },
+  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00 },
+  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50 },
+  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00 },
+  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50 },
+  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00 },
+  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00 },
+  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00 },
+  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33 },
+  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70 },
+  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00 },
+  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50 },
+  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50 },
+  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35 },
+  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80 },
+  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40 },
+  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00 },
+  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25 },
 ].sort((a, b) => a.code.localeCompare(b.code));
 
 export default function DepositPage() {
   const router = useRouter();
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
-  const [amount, setAmount] = useState<string>(defaultCurrency.defaultAmount);
+  const [amount, setAmount] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
   
   // Payment methods state
@@ -118,7 +117,6 @@ export default function DepositPage() {
     const found = CURRENCIES.find((c) => c.code === code);
     if (found) {
       setSelectedCurrency(found);
-      setAmount(found.defaultAmount);
     }
   };
 
@@ -276,7 +274,7 @@ export default function DepositPage() {
                   type="text"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={selectedCurrency.defaultAmount}
+                  placeholder="0"
                   className="w-full rounded-2xl border-2 border-stone-300 focus:border-[#C9A227] pl-5 pr-36 py-4 text-xl sm:text-2xl font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-[#C9A227]/15 transition-all shadow-inner"
                 />
 

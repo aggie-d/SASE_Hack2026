@@ -37,7 +37,7 @@ export function FundCardModal({
   currentCardBalanceUsd,
   availableUsdtUnits,
 }: FundCardModalProps) {
-  const [usdtAmount, setUsdtAmount] = useState<string>("10");
+  const [usdtAmount, setUsdtAmount] = useState<string>("");
 
   // Loading & stage state
   const [isLoading, setIsLoading] = useState(false);
@@ -126,6 +126,7 @@ export function FundCardModal({
       setSuccessData(null);
       setErrorMsg(null);
       setIsLoading(false);
+      setUsdtAmount("");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -392,7 +393,7 @@ export function FundCardModal({
                       type="text"
                       value={usdtAmount}
                       onChange={(e) => setUsdtAmount(e.target.value)}
-                      placeholder="10.00"
+                      placeholder="0.00"
                       disabled={isLoading}
                       className="w-full bg-[#070e1c] border border-slate-700/80 rounded-2xl py-3 pl-8 pr-20 text-xl font-mono font-bold text-white focus:outline-none focus:border-[#DFB338] focus:ring-1 focus:ring-[#DFB338] transition-all disabled:opacity-60"
                     />
