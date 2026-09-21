@@ -14,14 +14,27 @@ import {
   Loader2 
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import type { RatesResponse } from "@/lib/contracts";
 
 type CurrencyOption = {
   code: string;
   name: string;
   flag: string;
+  /** Offline fallback only — the live rate from GET /api/v1/rates wins when available. */
   ratePerUsd: number;
   defaultAmount: string;
 };
+
+type RatesState =
+  | { status: "loading" }
+  | { status: "live"; data: RatesResponse }
+  | { status: "offline" };
+
+/** "1 USD = X CODE" with enough precision to be meaningful for both 0.78 and 25,450. */
+function formatRate(rate: number): string {
+  const decimals = rate >= 100 ? 2 : rate >= 10 ? 3 : 4;
+  return rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+}
 
 type PaymentMethod = {
   id: string;
@@ -82,6 +95,30 @@ export default function DepositPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string>("/dashboard");
 
+  // Live FX rates (fawazahmed0/exchange-api via our /api/v1/rates). Falls back
+  // to the static table above if the fetch fails, and says so in the UI.
+  const [rates, setRates] = useState<RatesState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    const symbols = [...CURRENCIES.map((c) => c.code), "USDT"].join(",");
+    fetch(`/api/v1/rates?symbols=${symbols}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`rates ${res.status}`);
+        return (await res.json()) as RatesResponse;
+      })
+      .then((data) => {
+        if (!cancelled) setRates({ status: "live", data });
+      })
+      .catch((e) => {
+        console.error("Live rates unavailable, using offline table", e);
+        if (!cancelled) setRates({ status: "offline" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Load linked payment methods on mount
   useEffect(() => {
     async function loadPaymentMethods() {
@@ -106,12 +143,18 @@ export default function DepositPage() {
 
   const cardMethods = paymentMethods.filter((m) => m.type === "card");
 
+  // Rates in use: live if we have them, else the offline table.
+  const liveRates = rates.status === "live" ? rates.data.rates : null;
+  const ratePerUsd = liveRates?.[selectedCurrency.code] ?? selectedCurrency.ratePerUsd;
+  const usdtPerUsd = liveRates?.USDT ?? 1; // USDT is USD-pegged; live value is ≈1.000x
+  const rateIsLive = liveRates !== null && selectedCurrency.code in liveRates;
+
   // Dynamic calculations based on selected currency
   const rawNumber = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
-  const grossUsd = rawNumber > 0 ? rawNumber / selectedCurrency.ratePerUsd : 0;
+  const grossUsd = rawNumber > 0 ? rawNumber / ratePerUsd : 0;
   const feeUsd = rawNumber > 0 ? 0.5 : 0;
   const netUsd = Math.max(0, grossUsd - feeUsd);
-  const usdtEquivalent = netUsd; // 1 USDT = 1 USD stablecoin peg
+  const usdtEquivalent = netUsd * usdtPerUsd;
   const isMwk = selectedCurrency.code === "MWK";
 
   const handleCurrencySelect = (code: string) => {
@@ -160,6 +203,9 @@ export default function DepositPage() {
           amount: rawNumber.toString(),
           currency: selectedCurrency.code,
           net_usd: netUsd,
+          net_usdt: usdtEquivalent,
+          rate_per_usd: ratePerUsd,
+          rate_source: rates.status === "live" ? `${rates.data.source}@${rates.data.date}` : "offline",
         }),
       });
 
@@ -170,7 +216,7 @@ export default function DepositPage() {
 
       const data = await res.json();
       setSuccessData({
-        amount: `$${netUsd.toFixed(2)} USDT`,
+        amount: `${usdtEquivalent.toFixed(2)} USDT`,
         netUsd: netUsd.toFixed(2),
         currency: selectedCurrency.code,
         cardName: data.payment_method?.title
@@ -309,14 +355,35 @@ export default function DepositPage() {
                     Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                    ${netUsd.toFixed(2)}{" "}
+                    {usdtEquivalent.toFixed(2)}{" "}
                     <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
                 </div>
 
                 <div className="text-left sm:text-right space-y-0.5">
-                  <p className="text-xs font-semibold text-stone-700">
-                    1 USD = {selectedCurrency.ratePerUsd.toLocaleString()} {selectedCurrency.code}
+                  <p className="text-xs font-semibold text-stone-700 flex items-center gap-1.5 sm:justify-end">
+                    <span>
+                      1 USD = {formatRate(ratePerUsd)} {selectedCurrency.code}
+                    </span>
+                    {rates.status === "loading" ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-stone-500 bg-stone-100 border border-stone-200 px-1.5 py-0.5 rounded-md">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> LIVE
+                      </span>
+                    ) : rateIsLive ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md"
+                        title={`Market reference rate published ${rates.status === "live" ? rates.data.date : ""}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> LIVE
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md"
+                        title="Live rates unavailable — showing an indicative offline rate"
+                      >
+                        OFFLINE
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-stone-500">
                     Total Fee: ${feeUsd.toFixed(2)} USD
@@ -330,14 +397,24 @@ export default function DepositPage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-teal-500 flex items-center justify-center text-[7px] text-white font-bold">
                     T
                   </span>
-                  <span className="font-semibold text-stone-800">Stablecoin Equivalent:</span>
+                  <span className="font-semibold text-stone-800">USD value after fee:</span>
                   <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-                    {usdtEquivalent.toFixed(2)} USDT
+                    ${netUsd.toFixed(2)} USD
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-medium text-stone-600 bg-white px-2.5 py-1 rounded-full border border-stone-200/80 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span>Rate: 1 USDT = $1.00 USD (1:1 Peg)</span>
+                <div
+                  className="flex items-center gap-1 text-[11px] font-medium text-stone-600 bg-white px-2.5 py-1 rounded-full border border-stone-200/80 shadow-2xs"
+                  title={
+                    rates.status === "live"
+                      ? `Live market rate via ${rates.data.source}, published ${rates.data.date}`
+                      : "Indicative rate — live feed unavailable"
+                  }
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${rates.status === "live" ? "bg-green-500" : "bg-amber-500"}`} />
+                  <span>
+                    1 USD = {usdtPerUsd.toFixed(4)} USDT
+                    {isMwk && ` · 1 USDT = ${formatRate(ratePerUsd / usdtPerUsd)} MWK`}
+                  </span>
                 </div>
               </div>
             </div>
