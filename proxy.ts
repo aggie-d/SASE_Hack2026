@@ -30,18 +30,27 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users away from protected routes
   const { pathname } = request.nextUrl;
-  const isProtected = pathname.startsWith("/dashboard");
 
-  if (isProtected && !user) {
+  // Public routes that do not require authentication
+  const isPublicRoute =
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/auth");
+
+  // API routes manage their own authentication and return HTTP 401 JSON responses
+  const isApiRoute = pathname.startsWith("/api");
+
+  // Redirect unauthenticated users away from all protected routes
+  if (!isPublicRoute && !isApiRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login
-  if (pathname === "/login" && user) {
+  // Redirect authenticated users away from login or signup
+  if ((pathname === "/login" || pathname === "/signup") && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
