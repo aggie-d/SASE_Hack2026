@@ -84,6 +84,8 @@ Every route below has its request/response type in `lib/contracts/index.ts`:
 | `POST /cards/:id/fund` | `FundCardRequest` | `FundCardResponse` |
 | `PATCH /cards/:id` | `UpdateCardRequest` | `CardResponse` |
 | `POST /demo/purchases` | `CreatePurchaseRequest` | `AuthorizationResponse` (201) or 422 `ApiError` on decline |
+| `POST /demo/checkout` | `CheckoutRequest` | `CheckoutResponse` (201) — authorise **and** capture in one call; backs the `/checkout` merchant page. Cardholder-callable (verified user), not operator-only. 422 `ApiError` on decline |
+| `POST /demo/checkout/:authorization_id/refund` | — | `RefundResponse` — merchant refund of a captured checkout on the caller's own card. Idempotent (`duplicate: true` on repeat) |
 | `POST /demo/events` | `DemoEventRequest` | `DemoEventResponse` |
 | `GET /activity` | `ActivityListQuery` (query string) | `ActivityListResponse` |
 | `GET /activity/:id` | — | `ReceiptResponse` |
@@ -209,7 +211,7 @@ field.nullablePositiveMinorUnits(body, key): bigint | null | undefined
 new ApiHttpError(code: ErrorCode, { message?, details? })  // throw this for business errors
 ```
 
-**`lib/server/idempotency.ts`** — required on the four routes in `IDEMPOTENT_ROUTES` (`lib/contracts/index.ts`): `POST /api/v1/deposits`, `POST /api/v1/conversions`, `POST /api/v1/cards/:id/fund`, `POST /api/v1/demo/purchases`. Pass the string exactly as listed there.
+**`lib/server/idempotency.ts`** — required on the five routes in `IDEMPOTENT_ROUTES` (`lib/contracts/index.ts`): `POST /api/v1/deposits`, `POST /api/v1/conversions`, `POST /api/v1/cards/:id/fund`, `POST /api/v1/demo/purchases`, `POST /api/v1/demo/checkout`. Pass the string exactly as listed there.
 
 ```ts
 withIdempotency<T>(
