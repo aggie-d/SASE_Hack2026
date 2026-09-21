@@ -22,7 +22,6 @@ type CurrencyOption = {
   flag: string;
   /** Offline fallback only — the live rate from GET /api/v1/rates wins when available. */
   ratePerUsd: number;
-  defaultAmount: string;
 };
 
 type RatesState =
@@ -45,35 +44,34 @@ type PaymentMethod = {
 };
 
 const CURRENCIES: CurrencyOption[] = [
-  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67, defaultAmount: "65" },
-  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50, defaultAmount: "2,000" },
-  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25, defaultAmount: "120" },
-  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92, defaultAmount: "20" },
-  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78, defaultAmount: "15" },
-  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00, defaultAmount: "250,000" },
-  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50, defaultAmount: "1,500" },
-  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00, defaultAmount: "2,500" },
-  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50, defaultAmount: "2,000" },
-  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00, defaultAmount: "25,000" },
-  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00, defaultAmount: "5,000" },
-  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00, defaultAmount: "35,000" },
-  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33, defaultAmount: "50,000" },
-  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70, defaultAmount: "80" },
-  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00, defaultAmount: "25,000" },
-  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50, defaultAmount: "1,000" },
-  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50, defaultAmount: "5,000" },
-  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35, defaultAmount: "25" },
-  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80, defaultAmount: "600" },
-  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40, defaultAmount: "500" },
-  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00, defaultAmount: "400,000" },
-  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25, defaultAmount: "300" },
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67 },
+  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50 },
+  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25 },
+  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92 },
+  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78 },
+  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00 },
+  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50 },
+  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00 },
+  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50 },
+  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00 },
+  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00 },
+  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00 },
+  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33 },
+  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70 },
+  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00 },
+  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50 },
+  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50 },
+  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35 },
+  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80 },
+  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40 },
+  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00 },
+  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25 },
 ].sort((a, b) => a.code.localeCompare(b.code));
 
 export default function DepositPage() {
   const router = useRouter();
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
-  // Start empty; defaultAmount is only the placeholder hint.
   const [amount, setAmount] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
   
@@ -252,45 +250,108 @@ export default function DepositPage() {
       {/* Brand Background Design: Elegant Topographic Waves & Soft Mesh Ribbons */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Atmosphere glow */}
-        <div className="absolute -top-32 -right-32 w-[550px] h-[550px] bg-blue-500/[0.07] rounded-full blur-[140px]" />
-        <div className="absolute -bottom-32 -left-32 w-[550px] h-[550px] bg-[#C9A227]/[0.08] rounded-full blur-[140px]" />
+        <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-blue-500/[0.08] rounded-full blur-[130px]" />
+        <div className="absolute -bottom-32 -left-32 w-[600px] h-[600px] bg-[#C9A227]/[0.14] rounded-full blur-[130px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[500px] bg-blue-500/[0.09] rounded-full blur-[140px]" />
 
-        {/* Fluid Topographic Contour Lines */}
+        {/* Fluid Topographic Wispy Contour Lines — prominent and layered */}
         <svg
-          className="absolute inset-0 w-full h-full opacity-35"
+          className="absolute inset-0 w-full h-full pointer-events-none"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 1440 900"
           preserveAspectRatio="none"
         >
+          <defs>
+            <linearGradient id="blueWisp1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0066FF" stopOpacity="0.25" />
+              <stop offset="35%" stopColor="#0066FF" stopOpacity="0.75" />
+              <stop offset="70%" stopColor="#3B82F6" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#0066FF" stopOpacity="0.3" />
+            </linearGradient>
+            <linearGradient id="blueWisp2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.2" />
+              <stop offset="50%" stopColor="#60A5FA" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.25" />
+            </linearGradient>
+            <linearGradient id="goldWisp1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#C9A227" stopOpacity="0.25" />
+              <stop offset="30%" stopColor="#DFB338" stopOpacity="0.8" />
+              <stop offset="65%" stopColor="#F5D77F" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#C9A227" stopOpacity="0.3" />
+            </linearGradient>
+            <linearGradient id="goldWisp2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#B8911E" stopOpacity="0.2" />
+              <stop offset="45%" stopColor="#DFB338" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="#9E7A1B" stopOpacity="0.25" />
+            </linearGradient>
+          </defs>
+
+          {/* Blue Wave Flow — Layered Contours Positioned Directly Behind the Main Deposit Card */}
           <path
-            d="M-100,120 C320,-40 680,260 1100,80 C1300,0 1450,140 1550,110"
+            d="M-100,310 C280,160 640,470 1060,290 C1280,210 1430,350 1550,320"
             fill="none"
-            stroke="#0066FF"
-            strokeWidth="1.2"
-            strokeOpacity="0.2"
+            stroke="url(#blueWisp1)"
+            strokeWidth="2.4"
           />
           <path
-            d="M-100,180 C360,20 720,320 1140,140 C1340,60 1480,200 1550,170"
+            d="M-100,355 C310,205 670,510 1090,330 C1300,245 1450,390 1550,360"
             fill="none"
-            stroke="#0066FF"
-            strokeWidth="1"
+            stroke="url(#blueWisp2)"
+            strokeWidth="1.8"
+            strokeDasharray="8 6"
+          />
+          <path
+            d="M-100,400 C350,250 710,555 1130,375 C1330,295 1475,435 1550,405"
+            fill="none"
+            stroke="url(#blueWisp1)"
+            strokeWidth="1.6"
+            strokeOpacity="0.75"
+          />
+          <path
+            d="M-100,445 C390,295 750,595 1170,420 C1360,340 1495,475 1550,450"
+            fill="none"
+            stroke="url(#blueWisp2)"
+            strokeWidth="1.3"
+            strokeDasharray="5 6"
+            strokeOpacity="0.6"
+          />
+          <path
+            d="M-100,490 C430,345 790,635 1210,465 C1390,385 1515,520 1550,495"
+            fill="none"
+            stroke="url(#blueWisp1)"
+            strokeWidth="1.2"
+            strokeDasharray="8 8"
+            strokeOpacity="0.5"
+          />
+
+          {/* Bottom Gold Wave Flow — Layered Contours */}
+          <path
+            d="M-100,670 C210,790 610,530 990,710 C1210,810 1420,630 1550,670"
+            fill="none"
+            stroke="url(#goldWisp2)"
+            strokeWidth="1.4"
             strokeDasharray="6 6"
-            strokeOpacity="0.15"
+            strokeOpacity="0.5"
           />
           <path
-            d="M-100,720 C240,840 640,580 1020,760 C1240,860 1440,680 1550,720"
+            d="M-100,715 C245,835 645,575 1025,755 C1245,855 1445,675 1550,715"
             fill="none"
-            stroke="#C9A227"
-            strokeWidth="1.2"
-            strokeOpacity="0.25"
+            stroke="url(#goldWisp1)"
+            strokeWidth="2.2"
           />
           <path
-            d="M-100,780 C280,900 680,640 1060,820 C1280,920 1470,740 1550,780"
+            d="M-100,765 C285,885 685,625 1065,805 C1285,905 1475,725 1550,765"
             fill="none"
-            stroke="#C9A227"
-            strokeWidth="1"
-            strokeDasharray="5 5"
-            strokeOpacity="0.2"
+            stroke="url(#goldWisp1)"
+            strokeWidth="1.8"
+            strokeDasharray="8 5"
+          />
+          <path
+            d="M-100,815 C320,930 720,670 1100,850 C1315,945 1495,775 1550,815"
+            fill="none"
+            stroke="url(#goldWisp2)"
+            strokeWidth="1.5"
+            strokeOpacity="0.55"
           />
         </svg>
 
@@ -338,7 +399,7 @@ export default function DepositPage() {
                   type="text"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={selectedCurrency.defaultAmount}
+                  placeholder="0"
                   className="w-full rounded-2xl border-2 border-stone-300 focus:border-[#C9A227] pl-5 pr-36 py-4 text-xl sm:text-2xl font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-[#C9A227]/15 transition-all shadow-inner"
                 />
 
