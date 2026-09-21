@@ -201,12 +201,23 @@ export type QuoteResponse = {
   source: MoneyAmount;
   fee: MoneyAmount;
   destination: MoneyAmount;
-  /** Human-readable rate in major units, e.g. { value: "2000", meaning: "MWK per USDT" }. */
+  /** Human-readable rate in major units, e.g. { value: "1736.150000", meaning: "MWK per USDT" }. */
   rate: { value: string; meaning: string };
+  /**
+   * Where the rate came from. "live" = market reference (fawazahmed0/exchange-api,
+   * see rate_date); "pinned" = FX_RATE_OVERRIDE_MWK_PER_USDT; "mock" = the frozen
+   * 2,000 demo rate because the feed was unreachable. UI should badge accordingly.
+   */
+  rate_source: "live" | "pinned" | "mock";
+  /** Publication date of a live rate (YYYY-MM-DD); "pinned" / "mock" otherwise. */
+  rate_date: string;
   fee_bps: number; // e.g. 200 = 2%
   rounding: "floor";
   expires_at: string; // ISO 8601 UTC
-  /** "mock" → UI must label "Demo rate — not a market quote". */
+  /**
+   * Execution mode. Always "mock" in the demo: the RATE may be live, but no
+   * real liquidity is bought — the conversion is simulated on our ledger.
+   */
   mode: ProviderMode;
 };
 
