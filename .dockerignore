@@ -1,0 +1,37 @@
+# Dependencies and build artifacts
+node_modules
+.next
+out
+build
+dist
+
+# Git
+.git
+.gitignore
+
+# Environment files (injected at runtime or via build-args)
+.env*.local
+
+# Debug and log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+
+# Testing & Coverage
+tests
+coverage
+vitest.config*
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+
+# Documentation
+README.md
