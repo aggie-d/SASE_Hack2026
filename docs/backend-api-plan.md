@@ -355,11 +355,13 @@ POST /webhooks/mock  (simulated callback from provider)
 
 ```
 POST /quotes
+  → rate = getMwkPerUsdt()            (lib/server/rates.ts — see "Where rates come from")
   → server computes: fee = source_units * 2 / 100 (bigint)
   → net = source_units - fee
-  → destination_units = net / 2000  (bigint, MWK per USDT, scale difference applied)
-  → store in quotes, expires_at = now() + 5 minutes
-  → return quote JSON
+  → destination_units = net / rate    (bigint, floor, scale difference applied)
+  → store in quotes (rate_string = decimal rate, provider = "live:jsdelivr@YYYY-MM-DD" | "pinned" | "mock")
+  → expires_at = now() + 5 minutes; POST /conversions executes at the STORED destination_units, never re-prices
+  → return QuoteResponse incl. rate_source ("live" | "pinned" | "mock") and rate_date
 
 POST /conversions
   → verify quote not expired, owned by this user
@@ -373,9 +375,23 @@ POST /conversions
   → mark conversion completed
 ```
 
+### Where rates come from (one source for the whole app)
+
+`lib/server/rates.ts` is the single rate source. The deposit page (`GET /api/v1/rates`), `POST /quotes` and `POST /deposits` all read from it, so the app never contradicts itself between screens.
+
+| Priority | Source | `rate_source` | When |
+|---|---|---|---|
+| 1 | `FX_RATE_OVERRIDE_MWK_PER_USDT` env | `pinned` | Set before a presentation so the figure can't move and survives bad Wi-Fi |
+| 2 | [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api) (jsdelivr, then pages.dev fallback), cached 1h | `live` | Default; free, keyless, daily |
+| 3 | Frozen `2000` MWK/USDT | `mock` | Only if the feed is down and nothing is pinned |
+
+The *rate* may be live; the *execution* is still `mode: "mock"` (no real liquidity is bought). UI should badge LIVE / PINNED / DEMO from `rate_source`.
+
+**Deposits are priced server-side.** `POST /deposits` recomputes everything from `amount` + `currency` in bigint (`lib/server/deposit-pricing.ts`): source ÷ rate → USD cents, − 1% fee (100 bps, floored to the cent), × live USDT/USD → micro-USDT, floor at every step. Client-supplied `net_usd` / `net_usdt` are ignored for the credited amount. On rate drift the server does not reject — it credits the correct amount and returns `applied_rate { currency, per_usd, usdt_per_usd, fee_usd, fee_bps, source }` plus `amount_units` for the success modal. The applied rate is also appended to `deposits.provider_reference` (`…|50000.00MWK@1736.967434/USD|usdt=1.000471|jsdelivr@2026-09-20`) so it is auditable without a migration.
+
 ### Demo quote numbers (for reference)
 
-Using the brief's demo scenario (204,000 MWK UI input, converted to tambala internally):
+These use the frozen fallback rate (2,000) so the arithmetic is easy to check by hand; live quotes follow the identical steps with the day's rate. Using the brief's demo scenario (204,000 MWK UI input, converted to tambala internally):
 
 | Field | Value | Notes |
 |---|---|---|
@@ -384,11 +400,11 @@ Using the brief's demo scenario (204,000 MWK UI input, converted to tambala inte
 | `fee_units` | `"408000"` | 2% of 20,400,000 tambala = 408,000 tambala (= 4,080 MWK) |
 | Net MWK after fee | `"19992000"` | 19,992,000 tambala (= 199,920 MWK) |
 | `destination_units` | `"99960000"` | 99.96 USDT = 99,960,000 micro-USDT (exponent 6) |
-| `rate` | `"200000"` tambala per USDT | Equivalent to 2,000 MWK per USDT |
-| `rate_display` | `"2000"` MWK per USDT | Human-readable label shown in UI |
+| `rate.value` | `"2000.000000"` MWK per USDT | Decimal string, 6 dp; live example `"1736.149585"` |
+| `rate_source` | `"mock"` | `"live"` in normal operation, `"pinned"` with the env override |
 | `expires_at` | ISO 8601 UTC | 5 minutes from quote creation |
 
-> The rate stored in the database and used for arithmetic is in tambala-per-USDT (200,000). The UI displays the human-readable MWK-per-USDT value (2,000). Keep these separate to avoid confusion.
+> `quotes.rate_string` stores the decimal MWK-per-USDT rate as a string (never a float). Rows written before live rates hold the legacy integer tambala form (`"200000"`, no decimal point); `quoteResponse` recognises and converts both.
 
 ### Files to create
 

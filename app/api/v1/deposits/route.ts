@@ -3,37 +3,74 @@ import { getUserAccounts, getSystemAccount } from "@/lib/server/ledger/accounts"
 import { postJournal, debit, credit } from "@/lib/server/ledger/post";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApiHttpError, ok, route } from "@/lib/server/http";
+import { DEPOSIT_FEE_BPS, priceDeposit } from "@/lib/server/deposit-pricing";
+import { FALLBACK_MWK_PER_USDT, getUsdRates, rateToString, RatesUnavailableError } from "@/lib/server/rates";
 import type { PaymentMethodItem } from "@/lib/contracts";
+import { formatMinorUnits } from "@/lib/contracts/money";
 import crypto from "node:crypto";
 
+/**
+ * POST /api/v1/deposits — card / bank / mobile-money deposit credited to the
+ * USDT wallet (demo: instantly confirmed).
+ *
+ * Pricing is server-authoritative. The client may send its own preview
+ * (`net_usd`, `net_usdt`) but those fields are ignored for the amount we
+ * credit: the server re-prices `amount` + `currency` at the rate it fetched
+ * itself. If the rate moved since the page loaded, we credit the correct
+ * amount silently and return `applied_rate` so the UI can show what was used
+ * — no error is thrown for drift (demo choice; production would ask the user
+ * to confirm beyond a tolerance).
+ */
 export const POST = route(async (req) => {
   const { userId } = await requireUser();
   const body = (await req.json()) as {
     method?: string;
     amount?: string | number;
     currency?: string;
+    /** Client preview only — never used for the credited amount. */
     net_usd?: number;
-    /** USDT to credit after the live USD→USDT rate; preferred over net_usd when present. */
     net_usdt?: number;
     payment_method_id?: string;
   };
 
   const method = body.method || "card";
-  const currency = body.currency || "USD";
-  const rawAmount = typeof body.amount === "string" ? parseFloat(body.amount.replace(/[^0-9.]/g, "")) : Number(body.amount || 0);
-  const netUsd =
-    typeof body.net_usdt === "number" && body.net_usdt > 0
-      ? body.net_usdt
-      : typeof body.net_usd === "number" && body.net_usd > 0
-        ? body.net_usd
-        : rawAmount;
+  const currency = (body.currency || "USD").toUpperCase();
   const paymentMethodId = body.payment_method_id;
 
-  if (rawAmount <= 0) {
-    throw new ApiHttpError("VALIDATION_ERROR", {
-      message: "Please enter a positive deposit amount.",
-    });
+  if (body.amount === undefined || body.amount === null || String(body.amount).trim() === "") {
+    throw new ApiHttpError("VALIDATION_ERROR", { message: "Please enter a positive deposit amount." });
   }
+
+  // Rates: live feed (or pin) → for MWK only, the frozen demo rate as last resort.
+  let ratePerUsd: string;
+  let usdtPerUsd: string;
+  let rateSource: string;
+  try {
+    const rates = await getUsdRates();
+    const r = rates.rates[currency];
+    if (r === undefined) {
+      throw new ApiHttpError("VALIDATION_ERROR", { message: `Deposits in ${currency} are not supported.` });
+    }
+    ratePerUsd = rateToString(r);
+    usdtPerUsd = rateToString(rates.rates.USDT ?? 1);
+    rateSource = `${rates.source}@${rates.date}`;
+  } catch (err) {
+    if (!(err instanceof RatesUnavailableError)) throw err;
+    if (currency !== "MWK" && currency !== "USD") {
+      throw new ApiHttpError("PROVIDER_FAILED", {
+        message: "Live exchange rates are unavailable right now. Please try again in a moment.",
+      });
+    }
+    ratePerUsd = currency === "USD" ? "1" : rateToString(Number(FALLBACK_MWK_PER_USDT));
+    usdtPerUsd = "1";
+    rateSource = "mock";
+  }
+
+  const pricing = priceDeposit({ amount: body.amount, currency, ratePerUsd, usdtPerUsd });
+  const amountUnits = pricing.usdtUnits;
+  // Display-grade numbers for notifications / the legacy response fields.
+  const rawAmount = Number(pricing.sourceUnits) / 100;
+  const netUsd = Number(pricing.netUsdCents) / 100;
 
   const admin = createAdminClient();
   const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
@@ -55,15 +92,10 @@ export const POST = route(async (req) => {
     });
   }
 
-  // Deposits in any currency (local or foreign) are automatically converted to USDT
-  // and credited directly to the user's USDT wallet (1 USD = 1,000,000 micro-USDT, exponent 6).
-  const asset = "USDT";
-  const unitsNumber = Math.round(netUsd * 1_000_000);
-  const amountUnits = BigInt(unitsNumber);
-
+  // amountUnits (micro-USDT) was priced above by priceDeposit — bigint end to end.
   if (amountUnits <= 0n) {
     throw new ApiHttpError("VALIDATION_ERROR", {
-      message: "Deposit amount is too small to process.",
+      message: "Deposit amount is too small to process (less than one cent after the 1% fee).",
     });
   }
 
@@ -83,10 +115,14 @@ export const POST = route(async (req) => {
     ],
   });
 
-  // 2. Record deposit in deposits table
-  const providerRef = usedMethod
+  // 2. Record deposit in deposits table. The applied rate rides along in the
+  //    reference (no migration for the demo): "…|50000.00MWK@1736.967434/USD|usdt=1.000471|live:jsdelivr@2026-09-20"
+  const baseRef = usedMethod
     ? `card_${usedMethod.subtitle.replace(/[^a-zA-Z0-9]/g, "")}_${depositId.slice(0, 8)}`
     : `dep_${method}_${depositId.slice(0, 8)}`;
+  const providerRef =
+    `${baseRef}|${formatMinorUnits(pricing.sourceUnits, "USD", { code: false }).replace(/,/g, "")}${currency}` +
+    `@${pricing.ratePerUsd}/USD|usdt=${pricing.usdtPerUsd}|${rateSource}`;
 
   await admin.from("deposits").insert({
     id: depositId,
@@ -105,7 +141,7 @@ export const POST = route(async (req) => {
     ? `$${netUsd.toFixed(2)} USD`
     : `${rawAmount.toLocaleString()} ${currency} ($${netUsd.toFixed(2)} USDT)`;
 
-  const existingNotifications = (userData.user.user_metadata?.notifications as any[]) || [];
+  const existingNotifications = (userData.user.user_metadata?.notifications as unknown[] | undefined) ?? [];
   const newNotification = {
     id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     title: "Deposit Confirmed",
@@ -122,12 +158,25 @@ export const POST = route(async (req) => {
     },
   });
 
+  const creditedUsdt = formatMinorUnits(amountUnits, "USDT", { code: false });
   return ok({
     success: true,
     deposit_id: depositId,
-    amount: `$${netUsd.toFixed(2)} USDT`,
+    amount: `${creditedUsdt} USDT`,
     asset: "USDT",
+    /** Exact credit in micro-USDT (string bigint) — the number the ledger posted. */
+    amount_units: amountUnits.toString(),
+    net_usdt: Number(creditedUsdt.replace(/,/g, "")),
     net_usd: netUsd,
+    /** What the server actually priced at; the UI shows this, not its own preview. */
+    applied_rate: {
+      currency,
+      per_usd: pricing.ratePerUsd,
+      usdt_per_usd: pricing.usdtPerUsd,
+      fee_usd: formatMinorUnits(pricing.feeUsdCents, "USD", { code: false }),
+      fee_bps: DEPOSIT_FEE_BPS,
+      source: rateSource,
+    },
     target_wallet: "USDT Wallet",
     payment_method: usedMethod || { title: "Credit/Debit Card", subtitle: "Card" },
   });
