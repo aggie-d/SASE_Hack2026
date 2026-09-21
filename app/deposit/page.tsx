@@ -73,7 +73,8 @@ export default function DepositPage() {
   const router = useRouter();
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
-  const [amount, setAmount] = useState<string>(defaultCurrency.defaultAmount);
+  // Start empty; defaultAmount is only the placeholder hint.
+  const [amount, setAmount] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
   
   // Payment methods state
@@ -165,7 +166,7 @@ export default function DepositPage() {
     const found = CURRENCIES.find((c) => c.code === code);
     if (found) {
       setSelectedCurrency(found);
-      setAmount(found.defaultAmount);
+      setAmount("");
     }
   };
 
@@ -603,7 +604,7 @@ export default function DepositPage() {
             <div className="pt-2 flex flex-col items-center gap-3">
               <button
                 type="submit"
-                disabled={isDepositing || (selectedMethod === "card" && cardMethods.length === 0)}
+                disabled={isDepositing || rawNumber <= 0 || (selectedMethod === "card" && cardMethods.length === 0)}
                 className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_6px_20px_rgba(201,162,39,0.3)] hover:shadow-[0_8px_25px_rgba(201,162,39,0.45)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all text-base text-center flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
               >
                 {isDepositing ? (
