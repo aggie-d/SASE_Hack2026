@@ -105,3 +105,49 @@ Our goal is to make education, software, and international commerce more accessi
 Taking LADTransfer live would require dependable liquidity, collection and card partners, appropriate regulatory approvals, and validation with local users. Malawi’s foreign exchange shortage remains a real constraint; our contribution is a proposed additional payment route when partner liquidity is available.
 
 **LADTransfer’s ambition is simple: help people turn the money they earn into opportunities they can actually access.**
+
+---
+
+## 🐳 Running with Docker Locally
+
+You can build and run LADTransfer locally using Docker or Docker Compose.
+
+### Option 1: Docker Compose (Recommended)
+
+1. **Build and start the container in detached mode:**
+   ```bash
+   docker compose up -d --build
+   ```
+
+2. **Check application logs:**
+   ```bash
+   docker compose logs -f
+   ```
+
+3. **Access the app:**
+   Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+
+4. **Stop the container:**
+   ```bash
+   docker compose down
+   ```
+
+---
+
+### Option 2: Docker CLI
+
+1. **Build the Docker image:**
+   ```bash
+   docker build -t lad-transfer .
+   ```
+
+2. **Run the container:**
+   ```bash
+   docker run -p 3000:3000 --name lad-transfer-app lad-transfer
+   ```
+   *(If you have a local `.env.local` or `.env` file, pass `--env-file .env.local`)*
+
+3. **Stop and remove the container:**
+   ```bash
+   docker stop lad-transfer-app && docker rm lad-transfer-app
+   ```
