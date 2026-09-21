@@ -1,4 +1,4 @@
-import { MoneyError } from "@/lib/contracts/money";
+import { applyBasisPoints, MoneyError } from "@/lib/contracts/money";
 
 /**
  * Server-authoritative pricing for a card/bank/mobile deposit in any
@@ -6,7 +6,7 @@ import { MoneyError } from "@/lib/contracts/money";
  * arithmetic is never trusted — it is recomputed here from `amount` and
  * `currency` at the rate the server fetched.
  *
- *   source (2dp minor units) ─÷ ratePerUsd─▶ USD cents ─− fee─▶ net cents ─× usdtPerUsd─▶ micro-USDT
+ *   source (2dp minor units) ─÷ ratePerUsd─▶ USD cents ─− 1% fee─▶ net cents ─× usdtPerUsd─▶ micro-USDT
  *
  * Rounding: floor at every step, in the customer's disfavour by at most one
  * minor unit. Same policy as the ledger's quote path.
@@ -16,7 +16,8 @@ import { MoneyError } from "@/lib/contracts/money";
  * affects display precision, not correctness of the arithmetic.
  */
 
-export const DEPOSIT_FEE_USD_CENTS = 50n; // flat $0.50, matches the deposit page
+/** Deposit fee: 1% of the gross USD value (100 bps), floored to the cent. */
+export const DEPOSIT_FEE_BPS = 100;
 
 const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
 
@@ -74,15 +75,15 @@ export function priceDeposit(params: {
   currency: string;
   ratePerUsd: string;
   usdtPerUsd: string;
-  feeUsdCents?: bigint;
+  feeBps?: number;
 }): DepositPricing {
   const currency = params.currency.toUpperCase();
   const sourceUnits = parseMajorToMinor2(params.amount);
   if (sourceUnits <= 0n) throw new MoneyError("Deposit amount must be positive");
 
   const grossUsdCents = currency === "USD" ? sourceUnits : divideByRate(sourceUnits, params.ratePerUsd);
-  const feeUsdCents = params.feeUsdCents ?? DEPOSIT_FEE_USD_CENTS;
-  const netUsdCents = grossUsdCents > feeUsdCents ? grossUsdCents - feeUsdCents : 0n;
+  const feeUsdCents = applyBasisPoints(grossUsdCents, params.feeBps ?? DEPOSIT_FEE_BPS);
+  const netUsdCents = grossUsdCents - feeUsdCents;
   // cents → micro-USDT is ×10,000 at par, then the live USDT/USD rate.
   const usdtUnits = multiplyByRate(netUsdCents * 10_000n, params.usdtPerUsd);
 

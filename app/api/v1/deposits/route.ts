@@ -3,7 +3,7 @@ import { getUserAccounts, getSystemAccount } from "@/lib/server/ledger/accounts"
 import { postJournal, debit, credit } from "@/lib/server/ledger/post";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApiHttpError, ok, route } from "@/lib/server/http";
-import { priceDeposit } from "@/lib/server/deposit-pricing";
+import { DEPOSIT_FEE_BPS, priceDeposit } from "@/lib/server/deposit-pricing";
 import { FALLBACK_MWK_PER_USDT, getUsdRates, rateToString, RatesUnavailableError } from "@/lib/server/rates";
 import type { PaymentMethodItem } from "@/lib/contracts";
 import { formatMinorUnits } from "@/lib/contracts/money";
@@ -95,7 +95,7 @@ export const POST = route(async (req) => {
   // amountUnits (micro-USDT) was priced above by priceDeposit — bigint end to end.
   if (amountUnits <= 0n) {
     throw new ApiHttpError("VALIDATION_ERROR", {
-      message: `Deposit amount is too small to process after the $${formatMinorUnits(pricing.feeUsdCents, "USD", { code: false })} fee.`,
+      message: "Deposit amount is too small to process (less than one cent after the 1% fee).",
     });
   }
 
@@ -174,6 +174,7 @@ export const POST = route(async (req) => {
       per_usd: pricing.ratePerUsd,
       usdt_per_usd: pricing.usdtPerUsd,
       fee_usd: formatMinorUnits(pricing.feeUsdCents, "USD", { code: false }),
+      fee_bps: DEPOSIT_FEE_BPS,
       source: rateSource,
     },
     target_wallet: "USDT Wallet",

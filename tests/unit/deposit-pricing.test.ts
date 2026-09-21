@@ -31,25 +31,27 @@ describe("server-side deposit pricing", () => {
       usdtPerUsd: "1.000471",
     });
     expect(p.grossUsdCents).toBe(2878n);
-    expect(p.feeUsdCents).toBe(50n);
-    expect(p.netUsdCents).toBe(2828n);
-    // 28.28 USD × 1.000471 = 28.29331988 USDT → floored to micro-USDT
-    expect(p.usdtUnits).toBe(28_293_319n);
+    expect(p.feeUsdCents).toBe(28n); // 1% of $28.78 = $0.2878 → floored to $0.28
+    expect(p.netUsdCents).toBe(2850n);
+    // 28.50 USD × 1.000471 = 28.5134235 USDT → floored to micro-USDT
+    expect(p.usdtUnits).toBe(28_513_423n);
   });
 
   it("treats USD as 1:1 before the fee and USDT peg", () => {
     const p = priceDeposit({ amount: "100", currency: "usd", ratePerUsd: "ignored", usdtPerUsd: "1" });
     expect(p.currency).toBe("USD");
     expect(p.ratePerUsd).toBe("1");
-    expect(p.netUsdCents).toBe(9_950n);
-    expect(p.usdtUnits).toBe(99_500_000n);
+    expect(p.feeUsdCents).toBe(100n); // 1% of $100
+    expect(p.netUsdCents).toBe(9_900n);
+    expect(p.usdtUnits).toBe(99_000_000n);
   });
 
-  it("never goes negative when the fee exceeds the amount", () => {
+  it("charges no fee on amounts under one dollar (1% floors to zero cents)", () => {
     const p = priceDeposit({ amount: "500", currency: "MWK", ratePerUsd: "1736.967434", usdtPerUsd: "1" });
     expect(p.grossUsdCents).toBe(28n);
-    expect(p.netUsdCents).toBe(0n);
-    expect(p.usdtUnits).toBe(0n);
+    expect(p.feeUsdCents).toBe(0n);
+    expect(p.netUsdCents).toBe(28n);
+    expect(p.usdtUnits).toBe(280_000n);
   });
 
   it("ignores nothing the client says: identical inputs give identical credits", () => {

@@ -29,6 +29,34 @@ type RatesState =
   | { status: "live"; data: RatesResponse }
   | { status: "offline" };
 
+/** Deposit fee as a percentage. Server enforces the same (DEPOSIT_FEE_BPS = 100). */
+const DEPOSIT_FEE_PERCENT = 1;
+
+/** Tether symbol, used wherever an amount is in USDT (never on USD figures). */
+const USDT_SIGN = "₮";
+
+/**
+ * Live-format the amount as the user types: thousands separators on the
+ * integer part, at most two decimals. "50000.5" → "50,000.5"; a trailing
+ * "." is kept so the user can keep typing. Anything non-numeric is dropped.
+ */
+function formatAmountInput(raw: string): string {
+  const cleaned = raw.replace(/[^0-9.]/g, "");
+  if (cleaned === "") return "";
+  const dot = cleaned.indexOf(".");
+  const intPart = (dot === -1 ? cleaned : cleaned.slice(0, dot)).replace(/^0+(?=\d)/, "");
+  const decPart = dot === -1 ? null : cleaned.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+  const grouped = (intPart === "" ? "0" : intPart).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decPart === null ? grouped : `${grouped}.${decPart}`;
+}
+
+/** On blur, settle to the canonical x,xxx.00 form. Empty stays empty. */
+function normalizeAmountInput(value: string): string {
+  const n = parseFloat(value.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** "1 USD = X CODE" with enough precision to be meaningful for both 0.78 and 25,450. */
 function formatRate(rate: number): string {
   const decimals = rate >= 100 ? 2 : rate >= 10 ? 3 : 4;
@@ -155,7 +183,8 @@ export default function DepositPage() {
   // Dynamic calculations based on selected currency
   const rawNumber = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
   const grossUsd = rawNumber > 0 ? rawNumber / ratePerUsd : 0;
-  const feeUsd = rawNumber > 0 ? 0.5 : 0;
+  // 1% fee, floored to the cent — mirrors DEPOSIT_FEE_BPS on the server.
+  const feeUsd = Math.floor(grossUsd * DEPOSIT_FEE_PERCENT) / 100;
   const netUsd = Math.max(0, grossUsd - feeUsd);
   const usdtEquivalent = netUsd * usdtPerUsd;
   const isMwk = selectedCurrency.code === "MWK";
@@ -397,9 +426,11 @@ export default function DepositPage() {
               <div className="relative">
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0"
+                  onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+                  onBlur={() => setAmount((v) => normalizeAmountInput(v))}
+                  placeholder="0.00"
                   className="w-full rounded-2xl border-2 border-stone-300 focus:border-[#C9A227] pl-5 pr-36 py-4 text-xl sm:text-2xl font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-[#C9A227]/15 transition-all shadow-inner"
                 />
 
@@ -432,7 +463,8 @@ export default function DepositPage() {
                     Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                    {usdtEquivalent.toFixed(2)}{" "}
+                    <span className="text-teal-600">{USDT_SIGN}</span>
+                    {usdtEquivalent.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                     <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
                 </div>
@@ -463,7 +495,7 @@ export default function DepositPage() {
                     )}
                   </p>
                   <p className="text-xs text-stone-500">
-                    Total Fee: ${feeUsd.toFixed(2)} USD
+                    Total Fee ({DEPOSIT_FEE_PERCENT}%): ${feeUsd.toFixed(2)} USD
                   </p>
                 </div>
               </div>
@@ -722,7 +754,7 @@ export default function DepositPage() {
               <div className="flex justify-between items-center text-stone-600">
                 <span>Amount Credited:</span>
                 <span className="font-extrabold text-teal-700 text-base">
-                  +{successData.amount}
+                  +{USDT_SIGN}{successData.amount}
                 </span>
               </div>
               <div className="flex justify-between items-center text-stone-600">

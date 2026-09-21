@@ -387,7 +387,7 @@ POST /conversions
 
 The *rate* may be live; the *execution* is still `mode: "mock"` (no real liquidity is bought). UI should badge LIVE / PINNED / DEMO from `rate_source`.
 
-**Deposits are priced server-side.** `POST /deposits` recomputes everything from `amount` + `currency` in bigint (`lib/server/deposit-pricing.ts`): source ÷ rate → USD cents, − $0.50 fee, × live USDT/USD → micro-USDT, floor at every step. Client-supplied `net_usd` / `net_usdt` are ignored for the credited amount. On rate drift the server does not reject — it credits the correct amount and returns `applied_rate { currency, per_usd, usdt_per_usd, fee_usd, source }` plus `amount_units` for the success modal. The applied rate is also appended to `deposits.provider_reference` (`…|50000.00MWK@1736.967434/USD|usdt=1.000471|jsdelivr@2026-09-20`) so it is auditable without a migration.
+**Deposits are priced server-side.** `POST /deposits` recomputes everything from `amount` + `currency` in bigint (`lib/server/deposit-pricing.ts`): source ÷ rate → USD cents, − 1% fee (100 bps, floored to the cent), × live USDT/USD → micro-USDT, floor at every step. Client-supplied `net_usd` / `net_usdt` are ignored for the credited amount. On rate drift the server does not reject — it credits the correct amount and returns `applied_rate { currency, per_usd, usdt_per_usd, fee_usd, fee_bps, source }` plus `amount_units` for the success modal. The applied rate is also appended to `deposits.provider_reference` (`…|50000.00MWK@1736.967434/USD|usdt=1.000471|jsdelivr@2026-09-20`) so it is auditable without a migration.
 
 ### Demo quote numbers (for reference)
 
