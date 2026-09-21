@@ -1,4 +1,4 @@
-# LAD Transfer
+# LADTransfer
 
 ## Devpost Link
 https://devpost.com/software/1435244/joins/CZ8OF6byHyxB46CdRptdYQ
@@ -12,23 +12,25 @@ _Connecting local earnings to global opportunity._
 
 **Being able to afford something should mean being able to pay for it.**
 
-For Malawians trying to access international goods and services, that connection can break down. A student may have saved enough for an online course. A freelancer may have earned enough to purchase essential software. Yet paying internationally can remain difficult when their money is held in Malawian kwacha (MWK) and foreign currency is scarce.
+For Malawians, and citizens of other developing nations, trying to access international goods and services, that connection can break down. A student may have saved enough for an online course. A freelancer may have earned enough to purchase essential software. Yet paying internationally can remain difficult when their money is held in Malawian kwacha (MWK) and foreign currency is scarce.
 
-**ladTransfer is a digital wallet prototype designed to help Malawians turn locally earned money into international purchasing power.** It brings deposits, currency conversion, wallet balances, and virtual card spending into one guided experience, with clear costs and transaction statuses at every step.
+**LADTransfer is a digital wallet prototype designed to help Malawians turn locally earned money into international purchasing power.** It brings deposits, currency conversion, wallet balances, and virtual card spending into one guided experience, with clear costs and transaction statuses at every step.
 
 We integrated directly with [**Lithic’s APIs**](https://www.lithic.com/) to power the prototype’s virtual card issuing and card payment functionality. This connects our simulated USDT wallet experience to a working card infrastructure sandbox, demonstrating how users could move from a local currency balance to international card spending.
 
 ## Inspiration
 
-ladTransfer was inspired by a frustrating reality: having enough money in Malawi does not always mean being able to pay.
+LADTransfer was inspired by a frustrating reality in Thembi's life: having enough money in Malawi does not always mean being able to pay.
 
-Malawi imports substantially more than it exports, meaning its export earnings do not generate enough foreign currency to cover its import needs. This imbalance contributes to persistent forex shortages, alongside other economic pressures. The shortage affects access to essential imports and the ability of people and businesses to transact internationally. [Background on Malawi’s forex shortage](https://www.reuters.com/world/africa/malawi-aims-bring-inflation-below-21-this-year-president-says-2026-02-13/).
+Thembi hails from Malawi, and faced this struggle first-hand. Malawi imports substantially more than it exports, meaning its export earnings do not generate enough foreign currency to cover its import needs. This imbalance contributes to persistent forex shortages, alongside other economic pressures. The shortage affects access to essential imports and the ability of people and businesses to transact internationally. [Background on Malawi’s forex shortage](https://www.reuters.com/world/africa/malawi-aims-bring-inflation-below-21-this-year-president-says-2026-02-13/). 
 
 With foreign currency scarce, banks tightly manage forex allocations. Customers can face application requirements, delays, limited allocations, or unsuccessful requests—even when they have sufficient funds in Malawian kwacha. International card spending can also be restricted, leaving people uncertain about whether they will be able to pay online or access spending money abroad.
 
+This effect is not an issue isolated to Malawi. The Indian Rupee has fallen to record lows near ₹95.6 per USD, driven by high oil prices, large import bills, and over $20 billion in foreign investor outflows. The Indonesian rupiah breached 18,000 per USD, prompting the central bank to intervene “around the world, around the clock” and raise interest rates. Citizens in Asia increasingly feel the "squeeze" as reliance on the Western market continues to grow.  
+
 The consequences are practical and personal. A student may be unable to pay for an online course. A freelancer may struggle to renew essential software. A family may be unable to purchase products from an international website. A traveler may have money at home but insufficient spending capacity on their card. Businesses can struggle to pay overseas suppliers, delaying stock, equipment, and operations.
 
-These barriers inspired us to build ladTransfer: a prototype exploring how locally earned money could become more accessible for international spending. Our proposed journey connects MWK deposits, conversion into a USDT balance, and virtual card payments through our Lithic API integration.
+These barriers inspired us to build LADTransfer: a prototype exploring how locally earned money could become more accessible for international spending. Our proposed journey connects deposits, conversion into a USDT balance, and virtual card payments through our Lithic API integration.
 
 The prototype explores an additional payment route where partner liquidity is available. Its purpose is to give people a clearer, more convenient way to access global goods and services.
 
@@ -46,7 +48,7 @@ In the proposed live service, liquidity partners would supply the USDT, while a 
 
 ## Challenges we ran into
 
-The worst hurdle for us as a team was definitely the experience gap between some of our members, and getting those who weren’t as acquainted with Git and languages up to date and ready to work. Additionally, getting each teammate’s work to fit together required consistent amounts, balances, and payment statuses across the app alongside proficient Git usage from everyone, including people who had barely even used it before. We also had to keep conversion calculations accurate, handle payments that remained pending, and build safeguards against counting the same confirmation twice.
+The biggest hurdle for us as a team was definitely the experience gap between some of our members, and getting those who weren’t as acquainted with Git and languages up to date and ready to work. Additionally, getting each teammate’s work to fit together required consistent amounts, balances, and payment statuses across the app alongside proficient Git usage from everyone, including people who had barely even used it before. We also had to keep conversion calculations accurate, handle payments that remained pending, and build safeguards against counting the same confirmation twice.
 
 ## Accomplishments that we’re proud of
 
@@ -56,21 +58,21 @@ We’ve turned a very broad and serious financial access problem into a focused 
 
 We learned that a payment button is only one small part of a financial product. The harder work is tracking what happens afterward and explaining it clearly. There truly was so much under the surface of transactions that none of us ever really thought about, so creating everything from scratch was honestly a really big wake-up call in terms of all the little things that go into making transactions happen. We also learned to design around limited currency availability, since a useful interface still depends on partners who can supply and move funds.
 
-## What’s next for ladTransfer
+## What’s next for LADTransfer
 
-We’ll test that every part works together, including when payments fail, arrive late, or receive repeated confirmations. Then we’ll gather feedback from Malawian students and business owners. Moving beyond the demo will require dependable collection, currency conversion, and card partners, along with the necessary approvals.
+Right now, the web app is in a demo stage. To make real impact, LADTransfer needs dependable collection, currency conversion, and card partners, along with the necessary approvals. Since many in developing nations depend on mobile phones a simple mobile application will need to be made to allow easy transfers. We’ll test that every part works together, including when payments fail, arrive late, or receive repeated confirmations. Then we’ll gather feedback from Malawian students and business owners. We've proved that our concept can work in a sandbox, but we'll have to move it to the real world to achieve our goal of monetary empowerment for Malawians and all of those in developing nations. 
 
 ## Social Impact: access for a specific community
 
 The hackathon’s Social Impact track asks who a project serves and why existing options fall short. Our focus is Malawians who earn and hold MWK but face barriers when paying international providers. A domestic balance alone cannot guarantee access to foreign currency or a supported international payment method.
 
-That obstacle can affect access to education, professional tools, and business services. ladTransfer explores a practical additional payment route for these users, while presenting each step in language that people unfamiliar with cryptocurrency can follow.
+That obstacle can affect access to education, professional tools, and business services. LADTransfer explores a practical additional payment route for these users, while presenting each step in language that people unfamiliar with cryptocurrency can follow.
 
 The intended benefit is concrete: helping a learner pay for a course, a freelancer obtain a tool, or a business access a service. Testing these journeys with local users is essential to understanding whether the design addresses their actual needs.
 
 ## Finance: clearer decisions before money moves
 
-The Finance track emphasizes making financial decisions easier or clearer. ladTransfer organizes the experience around the decisions a user needs to make: how much MWK to commit, what the conversion costs, how much USDT they will receive, and how much to allocate to card spending.
+The Finance track emphasizes making financial decisions easier or clearer. LADTransfer organizes the experience around the decisions a user needs to make: how much MWK to commit, what the conversion costs, how much USDT they will receive, and how much to allocate to card spending.
 
 Showing these details before confirmation helps users assess a transaction. Separating wallet and card balances helps them understand where their funds are allocated. Clear pending, completed, and failed states help explain what has happened to a payment.
 
@@ -86,7 +88,7 @@ Our API integration lets us demonstrate the card side of this journey in Lithic�
 
 For someone unfamiliar with cryptocurrency, understanding what their balance represents matters. **USDT is a stablecoin designed to maintain a value of approximately US$1 per token.** According to its issuer, Tether, USDT is fully backed by reserves that include traditional currency, cash equivalents, and other assets. This backing supports its dollar peg. [Read Tether’s explanation of USDT and its reserves](https://tether.to/en/faqs/).
 
-**ladTransfer is designed to offer the familiar experience of a dollar-linked wallet:** users can understand their balance in dollar terms and allocate funds for international purchases. The underlying balance is held in USDT, however, rather than US dollars in a bank account.
+**LADTransfer is designed to offer the familiar experience of a dollar-linked wallet:** users can understand their balance in dollar terms and allocate funds for international purchases. The underlying balance is held in USDT, however, rather than US dollars in a bank account.
 
 The experience centers on practical questions: How much am I depositing? What will conversion cost? How much can I spend? Has my payment completed? Clear quotes, visible fees, and transaction statuses help users make informed decisions at each step.
 
@@ -98,6 +100,6 @@ The project uses **Next.js, TypeScript, and Supabase/PostgreSQL**, alongside our
 
 Our goal is to make education, software, and international commerce more accessible to people earning in MWK. A successful payment could help someone continue learning, deliver a client project, or obtain a tool their business needs.
 
-Taking ladTransfer live would require dependable liquidity, collection and card partners, appropriate regulatory approvals, and validation with local users. Malawi’s foreign exchange shortage remains a real constraint; our contribution is a proposed additional payment route when partner liquidity is available.
+Taking LADTransfer live would require dependable liquidity, collection and card partners, appropriate regulatory approvals, and validation with local users. Malawi’s foreign exchange shortage remains a real constraint; our contribution is a proposed additional payment route when partner liquidity is available.
 
-**ladTransfer’s ambition is simple: help people turn the money they earn into opportunities they can actually access.**
+**LADTransfer’s ambition is simple: help people turn the money they earn into opportunities they can actually access.**
