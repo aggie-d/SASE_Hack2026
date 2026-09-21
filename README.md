@@ -20,7 +20,7 @@ We integrated directly with [**Lithic’s APIs**](https://www.lithic.com/) to po
 
 ## Inspiration
 
-LADTransfer was inspired by a frustrating reality in Thembi's life: having enough money in Malawi does not always mean being able to pay.
+LADTransfer was inspired by a frustrating reality in Thembi's life: having enough money does not always mean being able to pay.
 
 Thembi hails from Malawi, and faced this struggle first-hand. Malawi imports substantially more than it exports, meaning its export earnings do not generate enough foreign currency to cover its import needs. This imbalance contributes to persistent forex shortages, alongside other economic pressures. The shortage affects access to essential imports and the ability of people and businesses to transact internationally. [Background on Malawi’s forex shortage](https://www.reuters.com/world/africa/malawi-aims-bring-inflation-below-21-this-year-president-says-2026-02-13/). 
 
