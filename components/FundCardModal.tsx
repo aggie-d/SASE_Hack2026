@@ -459,10 +459,6 @@ export function FundCardModal({
                     <span className="font-semibold text-green-400">$0.00 (Free)</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Conversion:</span>
-                    <span className="font-semibold text-slate-200">None — USDT wallet → USDT card</span>
-                  </div>
-                  <div className="flex justify-between items-center">
                     <span>Reference rate:</span>
                     <span className="font-semibold text-slate-200 flex items-center gap-1.5">
                       {usdtPerUsd !== null ? (
