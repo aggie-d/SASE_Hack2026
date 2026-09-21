@@ -406,7 +406,9 @@ export type PaymentMethodItem = {
   subtitle: string;
   icon_type: PaymentMethodType;
   last4?: string;
+  card_number?: string;
   cvv?: string;
+  expiry?: string;
   created_at: string;
 };
 
@@ -415,6 +417,15 @@ export type CreatePaymentMethodRequest = {
   name: string;
   number: string;
   cvv?: string;
+  expiry?: string;
+};
+
+export type UpdatePaymentMethodRequest = {
+  id: string;
+  name?: string;
+  number?: string;
+  cvv?: string;
+  expiry?: string;
 };
 
 export type PaymentMethodsResponse = {

@@ -79,12 +79,30 @@ function getCountryInfo(countryName: string) {
   };
 }
 
+function formatCardNumber(val: string): string {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 16);
+  const parts = clean.match(/.{1,4}/g);
+  return parts ? parts.join(" ") : clean;
+}
+
+function formatExpiry(val: string): string {
+  const clean = val.replace(/[^0-9]/g, "").slice(0, 4);
+  if (clean.length >= 3) {
+    return `${clean.slice(0, 2)}/${clean.slice(2)}`;
+  }
+  return clean;
+}
+
 type PaymentMethod = {
   id: string;
   type: "card" | "bank" | "mobile";
   title: string;
   subtitle: string;
   iconType: "card" | "bank" | "mobile";
+  last4?: string;
+  card_number?: string;
+  cvv?: string;
+  expiry?: string;
 };
 
 export default function ProfilePage() {
@@ -117,6 +135,17 @@ export default function ProfilePage() {
   const [newMethodName, setNewMethodName] = useState("");
   const [newMethodNumber, setNewMethodNumber] = useState("");
   const [newMethodCvv, setNewMethodCvv] = useState("");
+  const [newMethodExpiry, setNewMethodExpiry] = useState("");
+
+  // Edit Card Method Form State
+  const [showEditMethodModal, setShowEditMethodModal] = useState(false);
+  const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
+  const [editMethodName, setEditMethodName] = useState("");
+  const [editMethodNumber, setEditMethodNumber] = useState("");
+  const [editMethodCvv, setEditMethodCvv] = useState("");
+  const [editMethodExpiry, setEditMethodExpiry] = useState("");
+  const [isSavingMethod, setIsSavingMethod] = useState(false);
+  const [editMethodError, setEditMethodError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,6 +186,10 @@ export default function ProfilePage() {
                 title: m.title,
                 subtitle: m.subtitle,
                 iconType: m.icon_type,
+                last4: m.last4,
+                card_number: m.card_number,
+                cvv: m.cvv,
+                expiry: m.expiry,
               }))
             );
           }
@@ -214,6 +247,7 @@ export default function ProfilePage() {
           name: newMethodName,
           number: newMethodNumber,
           cvv: newMethodType === "card" ? newMethodCvv : undefined,
+          expiry: newMethodType === "card" ? newMethodExpiry : undefined,
         }),
       });
 
@@ -226,17 +260,86 @@ export default function ProfilePage() {
             title: m.title,
             subtitle: m.subtitle,
             iconType: m.icon_type,
+            last4: m.last4,
+            card_number: m.card_number,
+            cvv: m.cvv,
+            expiry: m.expiry,
           }))
         );
         setShowAddMethodModal(false);
         setNewMethodName("");
         setNewMethodNumber("");
         setNewMethodCvv("");
+        setNewMethodExpiry("");
       }
     } catch (err) {
       console.error("Failed to add payment method", err);
     } finally {
       setIsAddingMethod(false);
+    }
+  };
+
+  const handleOpenEditMethod = (method: PaymentMethod) => {
+    setEditingMethodId(method.id);
+    setEditMethodName(method.title);
+    setEditMethodNumber(
+      method.card_number
+        ? formatCardNumber(method.card_number)
+        : method.last4
+        ? `•••• •••• •••• ${method.last4}`
+        : ""
+    );
+    setEditMethodCvv(method.cvv || "");
+    setEditMethodExpiry(method.expiry || "");
+    setEditMethodError(null);
+    setShowEditMethodModal(true);
+  };
+
+  const handleSaveEditedMethod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMethodId) return;
+    setEditMethodError(null);
+
+    setIsSavingMethod(true);
+    try {
+      const res = await fetch("/api/v1/payment-methods", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingMethodId,
+          name: editMethodName.trim(),
+          number: editMethodNumber.replace(/\s+/g, ""),
+          cvv: editMethodCvv.trim(),
+          expiry: editMethodExpiry.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || "Failed to update card details.");
+      }
+
+      const data = await res.json();
+      setPaymentMethods(
+        data.payment_methods.map((m: any) => ({
+          id: m.id,
+          type: m.type,
+          title: m.title,
+          subtitle: m.subtitle,
+          iconType: m.icon_type,
+          last4: m.last4,
+          card_number: m.card_number,
+          cvv: m.cvv,
+          expiry: m.expiry,
+        }))
+      );
+      setShowEditMethodModal(false);
+      setEditingMethodId(null);
+    } catch (err: any) {
+      console.error("Failed to edit payment method", err);
+      setEditMethodError(err.message || "Failed to update card.");
+    } finally {
+      setIsSavingMethod(false);
     }
   };
 
@@ -254,6 +357,10 @@ export default function ProfilePage() {
             title: m.title,
             subtitle: m.subtitle,
             iconType: m.icon_type,
+            last4: m.last4,
+            card_number: m.card_number,
+            cvv: m.cvv,
+            expiry: m.expiry,
           }))
         );
       }
@@ -618,26 +725,45 @@ export default function ProfilePage() {
                     key={method.id}
                     className="rounded-2xl bg-[#131F37] border border-slate-700/60 p-4 flex items-center justify-between group hover:border-[#DFB338]/40 transition-colors"
                   >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338]">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338] shrink-0">
                         {method.iconType === "card" && <CreditCard className="w-5 h-5" />}
                         {method.iconType === "bank" && <Building2 className="w-5 h-5" />}
                         {method.iconType === "mobile" && <Smartphone className="w-5 h-5" />}
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-white">{method.title}</p>
-                        <p className="text-xs font-mono text-slate-400">{method.subtitle}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{method.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs font-mono text-slate-400">{method.subtitle}</span>
+                          {method.expiry && (
+                            <span className="text-[10px] font-mono text-[#DFB338] bg-[#DFB338]/10 px-1.5 py-0.5 rounded border border-[#DFB338]/20">
+                              Exp: {method.expiry}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePaymentMethod(method.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors opacity-60 group-hover:opacity-100"
-                      title="Remove method"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      {method.type === "card" && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditMethod(method)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-[#DFB338] hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Edit card details"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePaymentMethod(method.id)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                        title="Remove method"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -729,39 +855,56 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Account / Card Number + CVV Row */}
-              <div className={newMethodType === "card" ? "grid grid-cols-3 gap-3" : "space-y-1.5"}>
-                <div className={newMethodType === "card" ? "col-span-2 space-y-1.5" : "space-y-1.5"}>
-                  <label className="text-xs font-semibold text-slate-300">
-                    {newMethodType === "card" ? "Card Number" : newMethodType === "bank" ? "Account Number" : "Phone Number"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newMethodNumber}
-                    onChange={(e) => setNewMethodNumber(e.target.value)}
-                    placeholder={newMethodType === "card" ? "XXXX XXXX XXXX 4321" : newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
-                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono"
-                  />
-                </div>
+              {/* Account / Card Number */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">
+                  {newMethodType === "card" ? "Card Number" : newMethodType === "bank" ? "Account Number" : "Phone Number"}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newMethodNumber}
+                  onChange={(e) => setNewMethodNumber(newMethodType === "card" ? formatCardNumber(e.target.value) : e.target.value)}
+                  placeholder={newMethodType === "card" ? "XXXX XXXX XXXX 4321" : newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
+                  maxLength={newMethodType === "card" ? 19 : 30}
+                  className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono tracking-wider"
+                />
+              </div>
 
-                {newMethodType === "card" && (
+              {/* Expiration Date & CVV Row for Card */}
+              {newMethodType === "card" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">
+                      Expiration Date
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newMethodExpiry}
+                      onChange={(e) => setNewMethodExpiry(formatExpiry(e.target.value))}
+                      placeholder="MM/YY"
+                      maxLength={5}
+                      className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
+                    />
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300">
                       CVV / CVC
                     </label>
                     <input
                       type="password"
-                      maxLength={3}
+                      maxLength={4}
                       required
                       value={newMethodCvv}
-                      onChange={(e) => setNewMethodCvv(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                      onChange={(e) => setNewMethodCvv(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
                       placeholder="123"
                       className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
                     />
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="pt-3">
                 <button
@@ -859,6 +1002,129 @@ export default function ProfilePage() {
                   className="w-full py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all disabled:opacity-50"
                 >
                   {isSavingProfile ? "Saving Changes..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Linked Card Modal */}
+      {showEditMethodModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-700 text-white relative animate-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditMethodModal(false);
+                setEditingMethodId(null);
+              }}
+              className="absolute top-5 right-5 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#DFB338]/15 border border-[#DFB338]/30 flex items-center justify-center text-[#DFB338]">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Edit Linked Card</h3>
+                <p className="text-xs text-slate-400">
+                  Update your card number, CVV, and expiration date
+                </p>
+              </div>
+            </div>
+
+            {editMethodError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+                {editMethodError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditedMethod} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">
+                  Cardholder / Issuer Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editMethodName}
+                  onChange={(e) => setEditMethodName(e.target.value)}
+                  placeholder="e.g. Visa Debit, Chase Sapphire"
+                  className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">
+                  Card Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editMethodNumber}
+                  onChange={(e) => setEditMethodNumber(formatCardNumber(e.target.value))}
+                  placeholder="XXXX XXXX XXXX 4321"
+                  maxLength={19}
+                  className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono tracking-wider"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Enter new 16-digit card number to update
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Expiration Date
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMethodExpiry}
+                    onChange={(e) => setEditMethodExpiry(formatExpiry(e.target.value))}
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    CVV / CVC
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={4}
+                    required
+                    value={editMethodCvv}
+                    onChange={(e) => setEditMethodCvv(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+                    placeholder="123"
+                    className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditMethodModal(false);
+                    setEditingMethodId(null);
+                  }}
+                  disabled={isSavingMethod}
+                  className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingMethod}
+                  className="w-2/3 py-3 rounded-xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-950 text-sm shadow-md hover:brightness-105 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingMethod ? "Saving Changes..." : "Save Card Changes"}
                 </button>
               </div>
             </form>
