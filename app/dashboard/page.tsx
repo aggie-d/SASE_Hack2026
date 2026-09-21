@@ -241,7 +241,6 @@ export default function DashboardPage() {
             {/* Card Header: Brand + Contactless Icon / Quick Fund */}
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center gap-1 font-bold text-lg sm:text-xl lg:text-3xl tracking-tight select-none">
-                <span className="text-[#C9A227] text-xl sm:text-2xl lg:text-4xl">LT</span>
                 <span className="text-[#C9A227] ml-0.5">LAD</span>
                 <span className="text-white">Transfer</span>
               </div>

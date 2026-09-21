@@ -86,7 +86,6 @@ export default function Home() {
         <div className="bg-[#0B1528] rounded-2xl px-5 py-3.5 flex items-center justify-between shadow-lg border border-slate-800">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-1 font-bold text-xl sm:text-2xl tracking-tight select-none group">
-            <span className="text-[#C9A227] text-2xl sm:text-3xl">LT</span>
             <span className="text-[#C9A227] ml-0.5">LAD</span>
             <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
           </Link>
