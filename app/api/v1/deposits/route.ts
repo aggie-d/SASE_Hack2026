@@ -13,13 +13,20 @@ export const POST = route(async (req) => {
     amount?: string | number;
     currency?: string;
     net_usd?: number;
+    /** USDT to credit after the live USD→USDT rate; preferred over net_usd when present. */
+    net_usdt?: number;
     payment_method_id?: string;
   };
 
   const method = body.method || "card";
   const currency = body.currency || "USD";
   const rawAmount = typeof body.amount === "string" ? parseFloat(body.amount.replace(/[^0-9.]/g, "")) : Number(body.amount || 0);
-  const netUsd = typeof body.net_usd === "number" && body.net_usd > 0 ? body.net_usd : rawAmount;
+  const netUsd =
+    typeof body.net_usdt === "number" && body.net_usdt > 0
+      ? body.net_usdt
+      : typeof body.net_usd === "number" && body.net_usd > 0
+        ? body.net_usd
+        : rawAmount;
   const paymentMethodId = body.payment_method_id;
 
   if (rawAmount <= 0) {
