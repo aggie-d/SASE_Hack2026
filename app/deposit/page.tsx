@@ -234,45 +234,108 @@ export default function DepositPage() {
       {/* Brand Background Design: Elegant Topographic Waves & Soft Mesh Ribbons */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Atmosphere glow */}
-        <div className="absolute -top-32 -right-32 w-[550px] h-[550px] bg-blue-500/[0.07] rounded-full blur-[140px]" />
-        <div className="absolute -bottom-32 -left-32 w-[550px] h-[550px] bg-[#C9A227]/[0.08] rounded-full blur-[140px]" />
+        <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-blue-500/[0.08] rounded-full blur-[130px]" />
+        <div className="absolute -bottom-32 -left-32 w-[600px] h-[600px] bg-[#C9A227]/[0.14] rounded-full blur-[130px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[500px] bg-blue-500/[0.09] rounded-full blur-[140px]" />
 
-        {/* Fluid Topographic Contour Lines */}
+        {/* Fluid Topographic Wispy Contour Lines — prominent and layered */}
         <svg
-          className="absolute inset-0 w-full h-full opacity-35"
+          className="absolute inset-0 w-full h-full pointer-events-none"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 1440 900"
           preserveAspectRatio="none"
         >
+          <defs>
+            <linearGradient id="blueWisp1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0066FF" stopOpacity="0.25" />
+              <stop offset="35%" stopColor="#0066FF" stopOpacity="0.75" />
+              <stop offset="70%" stopColor="#3B82F6" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#0066FF" stopOpacity="0.3" />
+            </linearGradient>
+            <linearGradient id="blueWisp2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.2" />
+              <stop offset="50%" stopColor="#60A5FA" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.25" />
+            </linearGradient>
+            <linearGradient id="goldWisp1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#C9A227" stopOpacity="0.25" />
+              <stop offset="30%" stopColor="#DFB338" stopOpacity="0.8" />
+              <stop offset="65%" stopColor="#F5D77F" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#C9A227" stopOpacity="0.3" />
+            </linearGradient>
+            <linearGradient id="goldWisp2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#B8911E" stopOpacity="0.2" />
+              <stop offset="45%" stopColor="#DFB338" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="#9E7A1B" stopOpacity="0.25" />
+            </linearGradient>
+          </defs>
+
+          {/* Blue Wave Flow — Layered Contours Positioned Directly Behind the Main Deposit Card */}
           <path
-            d="M-100,120 C320,-40 680,260 1100,80 C1300,0 1450,140 1550,110"
+            d="M-100,310 C280,160 640,470 1060,290 C1280,210 1430,350 1550,320"
             fill="none"
-            stroke="#0066FF"
-            strokeWidth="1.2"
-            strokeOpacity="0.2"
+            stroke="url(#blueWisp1)"
+            strokeWidth="2.4"
           />
           <path
-            d="M-100,180 C360,20 720,320 1140,140 C1340,60 1480,200 1550,170"
+            d="M-100,355 C310,205 670,510 1090,330 C1300,245 1450,390 1550,360"
             fill="none"
-            stroke="#0066FF"
-            strokeWidth="1"
+            stroke="url(#blueWisp2)"
+            strokeWidth="1.8"
+            strokeDasharray="8 6"
+          />
+          <path
+            d="M-100,400 C350,250 710,555 1130,375 C1330,295 1475,435 1550,405"
+            fill="none"
+            stroke="url(#blueWisp1)"
+            strokeWidth="1.6"
+            strokeOpacity="0.75"
+          />
+          <path
+            d="M-100,445 C390,295 750,595 1170,420 C1360,340 1495,475 1550,450"
+            fill="none"
+            stroke="url(#blueWisp2)"
+            strokeWidth="1.3"
+            strokeDasharray="5 6"
+            strokeOpacity="0.6"
+          />
+          <path
+            d="M-100,490 C430,345 790,635 1210,465 C1390,385 1515,520 1550,495"
+            fill="none"
+            stroke="url(#blueWisp1)"
+            strokeWidth="1.2"
+            strokeDasharray="8 8"
+            strokeOpacity="0.5"
+          />
+
+          {/* Bottom Gold Wave Flow — Layered Contours */}
+          <path
+            d="M-100,670 C210,790 610,530 990,710 C1210,810 1420,630 1550,670"
+            fill="none"
+            stroke="url(#goldWisp2)"
+            strokeWidth="1.4"
             strokeDasharray="6 6"
-            strokeOpacity="0.15"
+            strokeOpacity="0.5"
           />
           <path
-            d="M-100,720 C240,840 640,580 1020,760 C1240,860 1440,680 1550,720"
+            d="M-100,715 C245,835 645,575 1025,755 C1245,855 1445,675 1550,715"
             fill="none"
-            stroke="#C9A227"
-            strokeWidth="1.2"
-            strokeOpacity="0.25"
+            stroke="url(#goldWisp1)"
+            strokeWidth="2.2"
           />
           <path
-            d="M-100,780 C280,900 680,640 1060,820 C1280,920 1470,740 1550,780"
+            d="M-100,765 C285,885 685,625 1065,805 C1285,905 1475,725 1550,765"
             fill="none"
-            stroke="#C9A227"
-            strokeWidth="1"
-            strokeDasharray="5 5"
-            strokeOpacity="0.2"
+            stroke="url(#goldWisp1)"
+            strokeWidth="1.8"
+            strokeDasharray="8 5"
+          />
+          <path
+            d="M-100,815 C320,930 720,670 1100,850 C1315,945 1495,775 1550,815"
+            fill="none"
+            stroke="url(#goldWisp2)"
+            strokeWidth="1.5"
+            strokeOpacity="0.55"
           />
         </svg>
 
