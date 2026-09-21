@@ -11,7 +11,6 @@ import { FundCardModal } from "@/components/FundCardModal";
 export default function DashboardPage() {
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [displayName, setDisplayName] = useState("Loading...");
-  const [mwkBalance, setMwkBalance] = useState("0.00");
   const [rawUsdtBalance, setRawUsdtBalance] = useState("0.00");
   const [rawCardFundingBalance, setRawCardFundingBalance] = useState("0.00");
   const [fullCardNumber, setFullCardNumber] = useState("XXXX XXXX XXXX XXXX");
@@ -22,7 +21,6 @@ export default function DashboardPage() {
   // Fund Modal States
   const [isFundModalOpen, setIsFundModalOpen] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [availableMwkUnits, setAvailableMwkUnits] = useState<bigint>(0n);
   const [availableUsdtUnits, setAvailableUsdtUnits] = useState<bigint>(0n);
 
   const loadDashboardData = useCallback(async () => {
@@ -43,22 +41,17 @@ export default function DashboardPage() {
         }
       }
 
-      // Fetch Wallets
+      // Fetch Wallets (USDT Wallet and Card Funding)
       const walletsRes = await fetch("/api/v1/wallets");
       if (walletsRes.ok) {
         const walletsData = (await walletsRes.json()) as WalletsResponse;
-        const mwkWallet = walletsData.wallets.find((w) => w.purpose === "mwk_wallet");
         const usdtWallet = walletsData.wallets.find((w) => w.purpose === "usdt_wallet");
         const cardWallet = walletsData.wallets.find((w) => w.purpose === "card_funding");
 
-        const totalMwkUnits = mwkWallet ? parseMinorUnits(mwkWallet.available_units) : 0n;
         const totalUsdtUnits = usdtWallet ? parseMinorUnits(usdtWallet.available_units) : 0n;
         const totalCardFundingUnits = cardWallet ? parseMinorUnits(cardWallet.available_units) : 0n;
 
-        setAvailableMwkUnits(totalMwkUnits);
         setAvailableUsdtUnits(totalUsdtUnits);
-
-        setMwkBalance(formatMinorUnits(totalMwkUnits, "MWK", { code: false }));
         setRawUsdtBalance(formatMinorUnits(totalUsdtUnits, "USDT", { code: false }));
         setRawCardFundingBalance(formatMinorUnits(totalCardFundingUnits, "USDT", { code: false }));
       }
@@ -355,39 +348,31 @@ export default function DashboardPage() {
 
         {/* Wallet Balances Breakdown */}
         <div 
-          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] grid grid-cols-3 gap-2.5 sm:gap-4 mb-5 sm:mb-6"
+          className="w-full max-w-[480px] sm:max-w-[540px] md:max-w-[600px] lg:max-w-[720px] xl:max-w-[800px] grid grid-cols-2 gap-3 sm:gap-5 mb-5 sm:mb-6"
           style={{ animation: "wave-lift 0.9s ease-in-out 0.32s both" }}
         >
-          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
-              MWK Wallet
-            </p>
-            <p className="text-xs sm:text-sm lg:text-base font-bold text-white mt-0.5 truncate">
-              {mwkBalance} <span className="text-[10px] text-slate-400">MWK</span>
-            </p>
-          </div>
-          <div className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <div className="bg-[#0B1528] rounded-2xl p-4 sm:p-5 border border-slate-800 text-center shadow-md">
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-400">
               USDT Wallet
             </p>
-            <p className="text-xs sm:text-sm lg:text-base font-bold text-teal-400 mt-0.5 truncate">
-              ${rawUsdtBalance} <span className="text-[10px] text-slate-400">USDT</span>
+            <p className="text-sm sm:text-lg lg:text-xl font-bold text-teal-400 mt-1 truncate">
+              ${rawUsdtBalance} <span className="text-xs text-slate-400 font-medium">USDT</span>
             </p>
           </div>
           <div
             onClick={() => setIsFundModalOpen(true)}
-            className="bg-[#0B1528] rounded-2xl p-3 sm:p-4 border border-slate-800 text-center shadow-md cursor-pointer hover:border-[#DFB338]/60 hover:shadow-[0_0_20px_rgba(223,179,56,0.15)] transition-all group"
+            className="bg-[#0B1528] rounded-2xl p-4 sm:p-5 border border-slate-800 text-center shadow-md cursor-pointer hover:border-[#DFB338]/60 hover:shadow-[0_0_20px_rgba(223,179,56,0.15)] transition-all group"
           >
-            <div className="flex items-center justify-center gap-1">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 group-hover:text-[#DFB338] transition-colors">
+            <div className="flex items-center justify-center gap-1.5">
+              <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-slate-400 group-hover:text-[#DFB338] transition-colors">
                 Card Funds
               </p>
-              <span className="text-[8px] sm:text-[9px] bg-[#DFB338]/20 text-[#DFB338] font-bold px-1.5 py-0.2 rounded-full">
+              <span className="text-[9px] sm:text-[10px] bg-[#DFB338]/20 text-[#DFB338] font-bold px-2 py-0.5 rounded-full">
                 + Top Up
               </span>
             </div>
-            <p className="text-xs sm:text-sm lg:text-base font-bold text-[#DFB338] mt-0.5 truncate">
-              ${rawCardFundingBalance} <span className="text-[10px] text-slate-400">USDT</span>
+            <p className="text-sm sm:text-lg lg:text-xl font-bold text-[#DFB338] mt-1 truncate">
+              ${rawCardFundingBalance} <span className="text-xs text-slate-400 font-medium">USDT</span>
             </p>
           </div>
         </div>
@@ -455,7 +440,6 @@ export default function DashboardPage() {
         cardId={activeCardId}
         cardLast4={cardLast4}
         currentCardBalanceUsd={rawCardFundingBalance}
-        availableMwkUnits={availableMwkUnits}
         availableUsdtUnits={availableUsdtUnits}
       />
     </div>

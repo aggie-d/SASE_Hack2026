@@ -13,6 +13,8 @@ import { getWalletBalances } from "@/lib/server/ledger/balances";
  */
 export const GET = route(async () => {
   const { userId } = await requireUser();
-  const wallets = await getWalletBalances(userId);
+  // Filter out the legacy MWK wallet so users only see their active USDT wallet and card funding accounts
+  const allWallets = await getWalletBalances(userId);
+  const wallets = allWallets.filter((w) => w.purpose !== "mwk_wallet");
   return ok<WalletsResponse>({ wallets });
 });

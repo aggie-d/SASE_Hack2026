@@ -84,6 +84,22 @@ export async function getSystemAccount(purpose: SystemAccountPurpose, asset: Ass
 
   if (error) throw error;
   if (!data) {
+    // If the system account (e.g. collection_clearing / USDT) was not seeded, auto-provision it
+    const { data: created, error: createError } = await admin
+      .from("accounts")
+      .insert({
+        owner_user_id: null,
+        purpose,
+        asset,
+        status: "active",
+      })
+      .select(ACCOUNT_COLUMNS)
+      .single<AccountRow>();
+
+    if (!createError && created) {
+      return { id: created.id, asset: created.asset };
+    }
+
     throw new ApiHttpError("INTERNAL_ERROR", {
       message: `System account ${purpose}/${asset} is not provisioned.`,
       details: { purpose, asset },

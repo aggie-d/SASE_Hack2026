@@ -170,7 +170,7 @@ export default function DepositPage() {
 
       const data = await res.json();
       setSuccessData({
-        amount: isMwk ? `${rawNumber.toLocaleString()} MWK` : `$${netUsd.toFixed(2)} USD`,
+        amount: `$${netUsd.toFixed(2)} USDT`,
         netUsd: netUsd.toFixed(2),
         currency: selectedCurrency.code,
         cardName: data.payment_method?.title
@@ -234,8 +234,8 @@ export default function DepositPage() {
 
         {/* Floating Currency Pills */}
         <div className="hidden lg:flex items-center gap-1.5 absolute top-44 left-16 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200/80 shadow-sm backdrop-blur-sm text-xs font-semibold text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          MWK Currency Gateway
+          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+          Auto-Converted to USDT
         </div>
         <div className="hidden lg:flex items-center gap-1.5 absolute bottom-44 right-16 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200/80 shadow-sm backdrop-blur-sm text-xs font-semibold text-slate-500">
           <span className="w-2 h-2 rounded-full bg-teal-500" />
@@ -306,11 +306,11 @@ export default function DepositPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                    Amount Received:
+                    Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
                     ${netUsd.toFixed(2)}{" "}
-                    <span className="text-sm font-bold text-stone-600">USD</span>
+                    <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
                 </div>
 
@@ -561,13 +561,13 @@ export default function DepositPage() {
               Deposit Confirmed!
             </h3>
             <p className="text-sm text-stone-600 mb-5">
-              Funds have been transferred from your linked card into your wallet.
+              Funds have been converted and credited directly into your USDT Wallet.
             </p>
 
             <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-4 space-y-2.5 text-left mb-6 text-sm">
               <div className="flex justify-between items-center text-stone-600">
-                <span>Amount Received:</span>
-                <span className="font-extrabold text-green-700 text-base">
+                <span>Amount Credited:</span>
+                <span className="font-extrabold text-teal-700 text-base">
                   +{successData.amount}
                 </span>
               </div>
@@ -579,8 +579,9 @@ export default function DepositPage() {
               </div>
               <div className="flex justify-between items-center text-stone-600">
                 <span>Destination:</span>
-                <span className="font-semibold text-stone-900">
-                  {successData.currency === "MWK" ? "MWK Wallet" : "USDT Wallet"}
+                <span className="font-semibold text-stone-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-teal-500" />
+                  USDT Wallet
                 </span>
               </div>
             </div>
