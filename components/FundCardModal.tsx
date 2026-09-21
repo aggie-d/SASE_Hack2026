@@ -17,6 +17,7 @@ import {
   parseMinorUnits,
 } from "@/lib/contracts/money";
 import type { FundCardResponse, RatesResponse } from "@/lib/contracts";
+import { formatAmountInput, normalizeAmountInput } from "@/lib/format-amount";
 
 /** "$0.9995" — USD value of 1 USDT from the live USDT-per-USD rate. */
 function usdPerUsdt(usdtPerUsd: number): string {
@@ -276,7 +277,7 @@ export function FundCardModal({
               <div className="flex justify-between items-center text-slate-400">
                 <span>Funded Amount:</span>
                 <span className="font-bold text-green-400 text-base">
-                  +₮{successData.amountUsd} USDT
+                  +{successData.amountUsd} USDT
                 </span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
@@ -296,7 +297,7 @@ export function FundCardModal({
               <div className="flex justify-between items-center text-slate-300">
                 <span>New Card Balance:</span>
                 <span className="font-extrabold text-[#DFB338] text-lg">
-                  ₮{successData.newCardBalanceUsd} USDT
+                  {successData.newCardBalanceUsd} USDT
                 </span>
               </div>
             </div>
@@ -335,7 +336,7 @@ export function FundCardModal({
                     Top Up Virtual Card
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400">
-                    Instantly transfer from your USDT Wallet with ₮0 fee
+                    Instantly transfer from your USDT Wallet with $0 fee
                   </p>
                 </div>
               </div>
@@ -365,7 +366,7 @@ export function FundCardModal({
                       From: USDT Wallet
                     </span>
                     <span className="text-sm font-bold text-teal-400 font-mono">
-                      ₮{formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
+                      ${formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
                     </span>
                   </div>
                 </div>
@@ -379,7 +380,7 @@ export function FundCardModal({
                       To: Virtual Card
                     </span>
                     <span className="text-sm font-bold text-[#DFB338] font-mono">
-                      ₮{activeCardBalance || currentCardBalanceUsd} USDT
+                      {activeCardBalance || currentCardBalanceUsd} USDT
                     </span>
                   </div>
                   <div className="w-9 h-9 rounded-xl bg-[#DFB338]/15 border border-[#DFB338]/30 flex items-center justify-center text-[#DFB338] shrink-0 font-mono text-xs font-bold">
@@ -404,19 +405,21 @@ export function FundCardModal({
                     <span className="text-slate-400">
                       Available:{" "}
                       <strong className="text-white">
-                        ₮{formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
+                        ${formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
                       </strong>
                     </span>
                   </div>
 
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">
-                      ₮
+                      $
                     </div>
                     <input
                       type="text"
+                      inputMode="decimal"
                       value={usdtAmount}
-                      onChange={(e) => setUsdtAmount(e.target.value)}
+                      onChange={(e) => setUsdtAmount(formatAmountInput(e.target.value))}
+                      onBlur={() => setUsdtAmount((v) => normalizeAmountInput(v))}
                       placeholder="0.00"
                       disabled={isLoading}
                       className="w-full bg-[#070e1c] border border-slate-700/80 rounded-2xl py-3 pl-8 pr-20 text-xl font-mono font-bold text-white focus:outline-none focus:border-[#DFB338] focus:ring-1 focus:ring-[#DFB338] transition-all disabled:opacity-60"
@@ -432,18 +435,18 @@ export function FundCardModal({
                       <button
                         key={preset}
                         type="button"
-                        onClick={() => setUsdtAmount(preset.toString())}
+                        onClick={() => setUsdtAmount(normalizeAmountInput(preset.toString()))}
                         disabled={isLoading}
                         className="text-xs px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium transition-colors border border-slate-700/50 cursor-pointer"
                       >
-                        +₮{preset}
+                        +${preset}
                       </button>
                     ))}
                     <button
                       type="button"
                       onClick={() => {
-                        const major = formatMinorUnits(availableUsdtUnits, "USDT", { code: false });
-                        setUsdtAmount(major);
+                        // formatMinorUnits already yields "1,234.56" — same shape as the typed input.
+                        setUsdtAmount(formatMinorUnits(availableUsdtUnits, "USDT", { code: false }));
                       }}
                       disabled={isLoading}
                       className="text-xs px-3 py-1.5 rounded-xl bg-[#DFB338]/15 hover:bg-[#DFB338]/25 text-[#DFB338] font-bold transition-colors border border-[#DFB338]/30 cursor-pointer"
@@ -457,7 +460,7 @@ export function FundCardModal({
                 <div className="bg-[#070e1c] rounded-2xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-400">
                   <div className="flex justify-between items-center">
                     <span>Transfer Fee:</span>
-                    <span className="font-semibold text-green-400">₮0.00 (Free)</span>
+                    <span className="font-semibold text-green-400">$0.00 (Free)</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Reference rate:</span>
@@ -479,7 +482,7 @@ export function FundCardModal({
                     <span>Net Card Top-Up:</span>
                     <span className="text-right">
                       <span className="text-green-400 font-bold font-mono text-base">
-                        +₮{rawUsdtNumber.toFixed(2)} USDT
+                        +{rawUsdtNumber.toFixed(2)} USDT
                       </span>
                       {usdtPerUsd !== null && rawUsdtNumber > 0 && (
                         <span className="block text-[10px] text-slate-500 font-mono">
@@ -491,7 +494,7 @@ export function FundCardModal({
                   <div className="flex justify-between items-center text-xs">
                     <span>Projected Card Balance:</span>
                     <span className="text-[#DFB338] font-bold font-mono">
-                      ₮{activeCardBalance || currentCardBalanceUsd} → ₮{projectedCardBalance} USDT
+                      {activeCardBalance || currentCardBalanceUsd} → {projectedCardBalance} USDT
                     </span>
                   </div>
                 </div>

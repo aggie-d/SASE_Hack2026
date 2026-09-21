@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import type { RatesResponse } from "@/lib/contracts";
+import { formatAmountInput, normalizeAmountInput } from "@/lib/format-amount";
 
 type CurrencyOption = {
   code: string;
@@ -31,31 +32,6 @@ type RatesState =
 
 /** Deposit fee as a percentage. Server enforces the same (DEPOSIT_FEE_BPS = 100). */
 const DEPOSIT_FEE_PERCENT = 1;
-
-/** Tether symbol, used wherever an amount is in USDT (never on USD figures). */
-const USDT_SIGN = "₮";
-
-/**
- * Live-format the amount as the user types: thousands separators on the
- * integer part, at most two decimals. "50000.5" → "50,000.5"; a trailing
- * "." is kept so the user can keep typing. Anything non-numeric is dropped.
- */
-function formatAmountInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9.]/g, "");
-  if (cleaned === "") return "";
-  const dot = cleaned.indexOf(".");
-  const intPart = (dot === -1 ? cleaned : cleaned.slice(0, dot)).replace(/^0+(?=\d)/, "");
-  const decPart = dot === -1 ? null : cleaned.slice(dot + 1).replace(/\./g, "").slice(0, 2);
-  const grouped = (intPart === "" ? "0" : intPart).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return decPart === null ? grouped : `${grouped}.${decPart}`;
-}
-
-/** On blur, settle to the canonical x,xxx.00 form. Empty stays empty. */
-function normalizeAmountInput(value: string): string {
-  const n = parseFloat(value.replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) return "";
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 /** "1 USD = X CODE" with enough precision to be meaningful for both 0.78 and 25,450. */
 function formatRate(rate: number): string {
@@ -463,7 +439,6 @@ export default function DepositPage() {
                     Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                    <span className="text-teal-600">{USDT_SIGN}</span>
                     {usdtEquivalent.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                     <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
@@ -503,9 +478,6 @@ export default function DepositPage() {
               {/* Dedicated Stable Coin to USD Conversion Rate Row */}
               <div className="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-teal-500 flex items-center justify-center text-[7px] text-white font-bold">
-                    T
-                  </span>
                   <span className="font-semibold text-stone-800">USD value after fee:</span>
                   <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                     ${netUsd.toFixed(2)} USD
@@ -754,7 +726,7 @@ export default function DepositPage() {
               <div className="flex justify-between items-center text-stone-600">
                 <span>Amount Credited:</span>
                 <span className="font-extrabold text-teal-700 text-base">
-                  +{USDT_SIGN}{successData.amount}
+                  +{successData.amount}
                 </span>
               </div>
               <div className="flex justify-between items-center text-stone-600">

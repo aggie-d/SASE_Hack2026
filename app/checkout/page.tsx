@@ -100,18 +100,12 @@ async function fetchCard(): Promise<LoadedCard> {
   }
 }
 
-/** Merchant-side price: the shop charges in dollars. */
 function usd(units: bigint): string {
   return `$${formatMinorUnits(units, "USDT", { code: false })}`;
 }
 
 function usdFromWire(value: string): string {
   return usd(parseMinorUnits(value));
-}
-
-/** Card-side balance: the card is funded in USDT, so it carries the tether sign. */
-function usdt(units: bigint): string {
-  return `₮${formatMinorUnits(units, "USDT", { code: false })} USDT`;
 }
 
 export default function CheckoutPage() {
@@ -479,7 +473,7 @@ function PaymentMethodCard({
       </div>
       <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-baseline text-xs">
         <span className="text-slate-300">Available on card</span>
-        <span className="font-extrabold text-base">{usdt(availableUnits)}</span>
+        <span className="font-extrabold text-base">{usd(availableUnits)}</span>
       </div>
     </div>
   );
@@ -511,7 +505,7 @@ function ReceiptRow({ label, value, mono }: { label: string; value: string; mono
 }
 
 function fundingLine(funding: WalletBalance): string {
-  return usdt(parseMinorUnits(funding.available_units));
+  return usdFromWire(funding.available_units);
 }
 
 function ApprovedScreen({
