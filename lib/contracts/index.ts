@@ -358,6 +358,31 @@ export type DemoEventResponse = {
   duplicate: boolean;
 };
 
+// ─── Reference FX rates ─────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/rates — live USD-based reference rates for display
+ * (deposit screen). Source: fawazahmed0/exchange-api, refreshed daily,
+ * cached server-side for an hour.
+ *
+ *   rates["MWK"]  = kwacha per 1 USD
+ *   rates["USDT"] = USDT per 1 USD (≈ 1.000x)
+ *   MWK → USDT    = rates["USDT"] / rates["MWK"]
+ *
+ * Plain JS numbers: these are quotes for the UI, not ledger amounts. Money
+ * that actually moves is still bigint minor units via the quote/convert flow.
+ */
+export type RatesResponse = {
+  base: "USD";
+  /** Upstream publication date, YYYY-MM-DD. */
+  date: string;
+  /** Which mirror answered: "jsdelivr" | "currency-api.pages.dev". */
+  source: string;
+  fetched_at: string;
+  /** Upper-case ISO / ticker code → units per 1 USD. Always includes USD: 1. */
+  rates: Record<string, number>;
+};
+
 // ─── Activity and receipts ──────────────────────────────────────────────────
 
 export type ActivityType =

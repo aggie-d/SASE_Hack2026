@@ -23,7 +23,7 @@ type OwnedAuthorizationRow = {
  * call returns { applied: false, duplicate: true } and posts nothing.
  */
 export const POST = route(
-  async (_req, context: RouteContext<"/api/v1/demo/checkout/[id]/refund">) => {
+  async (_req, context: { params: Promise<{ id: string }> }) => {
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== "true") {
       throw new ApiHttpError("FORBIDDEN", { message: "Demo operations are disabled." });
     }

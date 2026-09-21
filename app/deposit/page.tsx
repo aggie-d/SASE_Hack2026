@@ -14,14 +14,26 @@ import {
   Loader2 
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import type { RatesResponse } from "@/lib/contracts";
 
 type CurrencyOption = {
   code: string;
   name: string;
   flag: string;
+  /** Offline fallback only — the live rate from GET /api/v1/rates wins when available. */
   ratePerUsd: number;
-  defaultAmount: string;
 };
+
+type RatesState =
+  | { status: "loading" }
+  | { status: "live"; data: RatesResponse }
+  | { status: "offline" };
+
+/** "1 USD = X CODE" with enough precision to be meaningful for both 0.78 and 25,450. */
+function formatRate(rate: number): string {
+  const decimals = rate >= 100 ? 2 : rate >= 10 ? 3 : 4;
+  return rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+}
 
 type PaymentMethod = {
   id: string;
@@ -32,35 +44,35 @@ type PaymentMethod = {
 };
 
 const CURRENCIES: CurrencyOption[] = [
-  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67, defaultAmount: "65" },
-  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50, defaultAmount: "2,000" },
-  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25, defaultAmount: "120" },
-  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92, defaultAmount: "20" },
-  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78, defaultAmount: "15" },
-  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00, defaultAmount: "250,000" },
-  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50, defaultAmount: "1,500" },
-  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00, defaultAmount: "2,500" },
-  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50, defaultAmount: "2,000" },
-  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00, defaultAmount: "25,000" },
-  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00, defaultAmount: "5,000" },
-  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00, defaultAmount: "35,000" },
-  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33, defaultAmount: "50,000" },
-  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70, defaultAmount: "80" },
-  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00, defaultAmount: "25,000" },
-  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50, defaultAmount: "1,000" },
-  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50, defaultAmount: "5,000" },
-  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35, defaultAmount: "25" },
-  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80, defaultAmount: "600" },
-  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40, defaultAmount: "500" },
-  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00, defaultAmount: "400,000" },
-  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25, defaultAmount: "300" },
+  { code: "AED", name: "UAE Dirham", flag: "🇦🇪", ratePerUsd: 3.67 },
+  { code: "BDT", name: "Bangladeshi Taka", flag: "🇧🇩", ratePerUsd: 117.50 },
+  { code: "CNY", name: "Chinese Yuan", flag: "🇨🇳", ratePerUsd: 7.25 },
+  { code: "EUR", name: "Euro", flag: "🇪🇺", ratePerUsd: 0.92 },
+  { code: "GBP", name: "British Pound", flag: "🇬🇧", ratePerUsd: 0.78 },
+  { code: "IDR", name: "Indonesian Rupiah", flag: "🇮🇩", ratePerUsd: 16250.00 },
+  { code: "INR", name: "Indian Rupee", flag: "🇮🇳", ratePerUsd: 83.50 },
+  { code: "JPY", name: "Japanese Yen", flag: "🇯🇵", ratePerUsd: 155.00 },
+  { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", ratePerUsd: 129.50 },
+  { code: "KRW", name: "South Korean Won", flag: "🇰🇷", ratePerUsd: 1380.00 },
+  { code: "LKR", name: "Sri Lankan Rupee", flag: "🇱🇰", ratePerUsd: 305.00 },
+  { code: "MMK", name: "Myanmar Kyat (Burmese)", flag: "🇲🇲", ratePerUsd: 2100.00 },
+  { code: "MWK", name: "Malawian Kwacha", flag: "🇲🇼", ratePerUsd: 3333.33 },
+  { code: "MYR", name: "Malaysian Ringgit", flag: "🇲🇾", ratePerUsd: 4.70 },
+  { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", ratePerUsd: 1480.00 },
+  { code: "PHP", name: "Philippine Peso", flag: "🇵🇭", ratePerUsd: 58.50 },
+  { code: "PKR", name: "Pakistani Rupee", flag: "🇵🇰", ratePerUsd: 278.50 },
+  { code: "SGD", name: "Singapore Dollar", flag: "🇸🇬", ratePerUsd: 1.35 },
+  { code: "THB", name: "Thai Baht", flag: "🇹🇭", ratePerUsd: 36.80 },
+  { code: "TWD", name: "New Taiwan Dollar", flag: "🇹🇼", ratePerUsd: 32.40 },
+  { code: "VND", name: "Vietnamese Dong", flag: "🇻🇳", ratePerUsd: 25450.00 },
+  { code: "ZAR", name: "South African Rand", flag: "🇿🇦", ratePerUsd: 18.25 },
 ].sort((a, b) => a.code.localeCompare(b.code));
 
 export default function DepositPage() {
   const router = useRouter();
   const defaultCurrency = CURRENCIES.find((c) => c.code === "MWK") || CURRENCIES[0];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(defaultCurrency);
-  const [amount, setAmount] = useState<string>(defaultCurrency.defaultAmount);
+  const [amount, setAmount] = useState<string>("");
   const [selectedMethod, setSelectedMethod] = useState<"mobile" | "bank" | "card">("card");
   
   // Payment methods state
@@ -81,6 +93,30 @@ export default function DepositPage() {
   // Cancel Modal state
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string>("/dashboard");
+
+  // Live FX rates (fawazahmed0/exchange-api via our /api/v1/rates). Falls back
+  // to the static table above if the fetch fails, and says so in the UI.
+  const [rates, setRates] = useState<RatesState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    const symbols = [...CURRENCIES.map((c) => c.code), "USDT"].join(",");
+    fetch(`/api/v1/rates?symbols=${symbols}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`rates ${res.status}`);
+        return (await res.json()) as RatesResponse;
+      })
+      .then((data) => {
+        if (!cancelled) setRates({ status: "live", data });
+      })
+      .catch((e) => {
+        console.error("Live rates unavailable, using offline table", e);
+        if (!cancelled) setRates({ status: "offline" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load linked payment methods on mount
   useEffect(() => {
@@ -106,19 +142,24 @@ export default function DepositPage() {
 
   const cardMethods = paymentMethods.filter((m) => m.type === "card");
 
+  // Rates in use: live if we have them, else the offline table.
+  const liveRates = rates.status === "live" ? rates.data.rates : null;
+  const ratePerUsd = liveRates?.[selectedCurrency.code] ?? selectedCurrency.ratePerUsd;
+  const usdtPerUsd = liveRates?.USDT ?? 1; // USDT is USD-pegged; live value is ≈1.000x
+  const rateIsLive = liveRates !== null && selectedCurrency.code in liveRates;
+
   // Dynamic calculations based on selected currency
   const rawNumber = parseFloat(amount.replace(/[^0-9.]/g, "")) || 0;
-  const grossUsd = rawNumber > 0 ? rawNumber / selectedCurrency.ratePerUsd : 0;
+  const grossUsd = rawNumber > 0 ? rawNumber / ratePerUsd : 0;
   const feeUsd = rawNumber > 0 ? 0.5 : 0;
   const netUsd = Math.max(0, grossUsd - feeUsd);
-  const usdtEquivalent = netUsd; // 1 USDT = 1 USD stablecoin peg
+  const usdtEquivalent = netUsd * usdtPerUsd;
   const isMwk = selectedCurrency.code === "MWK";
 
   const handleCurrencySelect = (code: string) => {
     const found = CURRENCIES.find((c) => c.code === code);
     if (found) {
       setSelectedCurrency(found);
-      setAmount(found.defaultAmount);
     }
   };
 
@@ -160,6 +201,9 @@ export default function DepositPage() {
           amount: rawNumber.toString(),
           currency: selectedCurrency.code,
           net_usd: netUsd,
+          net_usdt: usdtEquivalent,
+          rate_per_usd: ratePerUsd,
+          rate_source: rates.status === "live" ? `${rates.data.source}@${rates.data.date}` : "offline",
         }),
       });
 
@@ -170,7 +214,7 @@ export default function DepositPage() {
 
       const data = await res.json();
       setSuccessData({
-        amount: isMwk ? `${rawNumber.toLocaleString()} MWK` : `$${netUsd.toFixed(2)} USD`,
+        amount: `${usdtEquivalent.toFixed(2)} USDT`,
         netUsd: netUsd.toFixed(2),
         currency: selectedCurrency.code,
         cardName: data.payment_method?.title
@@ -234,8 +278,8 @@ export default function DepositPage() {
 
         {/* Floating Currency Pills */}
         <div className="hidden lg:flex items-center gap-1.5 absolute top-44 left-16 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200/80 shadow-sm backdrop-blur-sm text-xs font-semibold text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          MWK Currency Gateway
+          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+          Auto-Converted to USDT
         </div>
         <div className="hidden lg:flex items-center gap-1.5 absolute bottom-44 right-16 px-3.5 py-1.5 rounded-full bg-white/80 border border-slate-200/80 shadow-sm backdrop-blur-sm text-xs font-semibold text-slate-500">
           <span className="w-2 h-2 rounded-full bg-teal-500" />
@@ -276,7 +320,7 @@ export default function DepositPage() {
                   type="text"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={selectedCurrency.defaultAmount}
+                  placeholder="0"
                   className="w-full rounded-2xl border-2 border-stone-300 focus:border-[#C9A227] pl-5 pr-36 py-4 text-xl sm:text-2xl font-bold text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-[#C9A227]/15 transition-all shadow-inner"
                 />
 
@@ -306,17 +350,38 @@ export default function DepositPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                    Amount Received:
+                    Credited to USDT Wallet:
                   </p>
                   <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
-                    ${netUsd.toFixed(2)}{" "}
-                    <span className="text-sm font-bold text-stone-600">USD</span>
+                    {usdtEquivalent.toFixed(2)}{" "}
+                    <span className="text-sm font-bold text-teal-600">USDT</span>
                   </p>
                 </div>
 
                 <div className="text-left sm:text-right space-y-0.5">
-                  <p className="text-xs font-semibold text-stone-700">
-                    1 USD = {selectedCurrency.ratePerUsd.toLocaleString()} {selectedCurrency.code}
+                  <p className="text-xs font-semibold text-stone-700 flex items-center gap-1.5 sm:justify-end">
+                    <span>
+                      1 USD = {formatRate(ratePerUsd)} {selectedCurrency.code}
+                    </span>
+                    {rates.status === "loading" ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-stone-500 bg-stone-100 border border-stone-200 px-1.5 py-0.5 rounded-md">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> LIVE
+                      </span>
+                    ) : rateIsLive ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-md"
+                        title={`Market reference rate published ${rates.status === "live" ? rates.data.date : ""}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> LIVE
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md"
+                        title="Live rates unavailable — showing an indicative offline rate"
+                      >
+                        OFFLINE
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-stone-500">
                     Total Fee: ${feeUsd.toFixed(2)} USD
@@ -330,14 +395,24 @@ export default function DepositPage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-teal-500 flex items-center justify-center text-[7px] text-white font-bold">
                     T
                   </span>
-                  <span className="font-semibold text-stone-800">Stablecoin Equivalent:</span>
+                  <span className="font-semibold text-stone-800">USD value after fee:</span>
                   <span className="font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-                    {usdtEquivalent.toFixed(2)} USDT
+                    ${netUsd.toFixed(2)} USD
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-medium text-stone-600 bg-white px-2.5 py-1 rounded-full border border-stone-200/80 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  <span>Rate: 1 USDT = $1.00 USD (1:1 Peg)</span>
+                <div
+                  className="flex items-center gap-1 text-[11px] font-medium text-stone-600 bg-white px-2.5 py-1 rounded-full border border-stone-200/80 shadow-2xs"
+                  title={
+                    rates.status === "live"
+                      ? `Live market rate via ${rates.data.source}, published ${rates.data.date}`
+                      : "Indicative rate — live feed unavailable"
+                  }
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${rates.status === "live" ? "bg-green-500" : "bg-amber-500"}`} />
+                  <span>
+                    1 USD = {usdtPerUsd.toFixed(4)} USDT
+                    {isMwk && ` · 1 USDT = ${formatRate(ratePerUsd / usdtPerUsd)} MWK`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -561,13 +636,13 @@ export default function DepositPage() {
               Deposit Confirmed!
             </h3>
             <p className="text-sm text-stone-600 mb-5">
-              Funds have been transferred from your linked card into your wallet.
+              Funds have been converted and credited directly into your USDT Wallet.
             </p>
 
             <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-4 space-y-2.5 text-left mb-6 text-sm">
               <div className="flex justify-between items-center text-stone-600">
-                <span>Amount Received:</span>
-                <span className="font-extrabold text-green-700 text-base">
+                <span>Amount Credited:</span>
+                <span className="font-extrabold text-teal-700 text-base">
                   +{successData.amount}
                 </span>
               </div>
@@ -579,8 +654,9 @@ export default function DepositPage() {
               </div>
               <div className="flex justify-between items-center text-stone-600">
                 <span>Destination:</span>
-                <span className="font-semibold text-stone-900">
-                  {successData.currency === "MWK" ? "MWK Wallet" : "USDT Wallet"}
+                <span className="font-semibold text-stone-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-teal-500" />
+                  USDT Wallet
                 </span>
               </div>
             </div>

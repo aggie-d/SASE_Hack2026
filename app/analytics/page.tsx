@@ -40,17 +40,25 @@ export default function AnalyticsPage() {
             const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
             const amtUnits = parseMinorUnits(item.amount.amount_units);
             const amtStr = formatMinorUnits(amtUnits, item.amount.asset, { code: false });
-            const isExpense = item.type === "purchase" || item.type === "conversion";
+            // Only money spent from the virtual card (purchases) counts as money spent
+            const isExpense = item.type === "purchase";
             const numUnits = Number(amtUnits);
-            // Convert to USD value (MWK rate ~2000, USDT exponent 6)
             const numericAmount = item.amount.asset === "MWK" ? numUnits / 200000 : numUnits / 1000000;
+
+            const category = item.type === "purchase"
+              ? (item.title.replace(/^Purchase\s*—\s*/i, "") || "Shopping")
+              : item.type === "card_fund"
+              ? "Card Top Up"
+              : item.type === "deposit"
+              ? "Deposit"
+              : item.type.charAt(0).toUpperCase() + item.type.slice(1);
 
             return {
               id: item.id,
               date: dateStr,
               merchant: item.title,
               amount: (isExpense ? "-" : "+") + "$" + amtStr,
-              category: item.type.charAt(0).toUpperCase() + item.type.slice(1),
+              category,
               isExpense,
               numericAmount,
             };
@@ -329,7 +337,7 @@ export default function AnalyticsPage() {
                         </p>
                       </div>
 
-                      <p className="text-sm font-semibold text-[#DFB338] shrink-0 text-right">
+                      <p className={`text-sm font-semibold shrink-0 text-right ${transaction.isExpense ? "text-rose-400" : "text-emerald-400"}`}>
                         {transaction.amount}
                       </p>
                     </article>

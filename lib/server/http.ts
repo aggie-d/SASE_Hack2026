@@ -53,7 +53,9 @@ export function requestIdFrom(req: Request): string {
 export function ok<T>(body: T, init: { status?: number; headers?: HeadersInit; requestId?: string } = {}): Response {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json; charset=utf-8");
-  headers.set("cache-control", "no-store");
+  // Money and per-user data must never be cached; a route may opt in to
+  // caching (e.g. public reference rates) by passing its own Cache-Control.
+  if (!headers.has("cache-control")) headers.set("cache-control", "no-store");
   if (init.requestId) headers.set(REQUEST_ID_HEADER, init.requestId);
   return new Response(JSON.stringify(body), { status: init.status ?? 200, headers });
 }

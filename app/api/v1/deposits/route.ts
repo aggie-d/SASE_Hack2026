@@ -13,13 +13,20 @@ export const POST = route(async (req) => {
     amount?: string | number;
     currency?: string;
     net_usd?: number;
+    /** USDT to credit after the live USD→USDT rate; preferred over net_usd when present. */
+    net_usdt?: number;
     payment_method_id?: string;
   };
 
   const method = body.method || "card";
   const currency = body.currency || "USD";
   const rawAmount = typeof body.amount === "string" ? parseFloat(body.amount.replace(/[^0-9.]/g, "")) : Number(body.amount || 0);
-  const netUsd = typeof body.net_usd === "number" && body.net_usd > 0 ? body.net_usd : rawAmount;
+  const netUsd =
+    typeof body.net_usdt === "number" && body.net_usdt > 0
+      ? body.net_usdt
+      : typeof body.net_usd === "number" && body.net_usd > 0
+        ? body.net_usd
+        : rawAmount;
   const paymentMethodId = body.payment_method_id;
 
   if (rawAmount <= 0) {
@@ -48,13 +55,10 @@ export const POST = route(async (req) => {
     });
   }
 
-  // Determine asset and minor units:
-  // If depositing in MWK: 1 MWK = 100 tambala (exponent 2)
-  // If depositing in foreign currency or USD: we credit USD/USDT (1 USD = 1,000,000 micro-USDT, exponent 6)
-  const isMwk = currency === "MWK";
-  const asset = isMwk ? "MWK" : "USDT";
-
-  const unitsNumber = isMwk ? Math.round(rawAmount * 100) : Math.round(netUsd * 1_000_000);
+  // Deposits in any currency (local or foreign) are automatically converted to USDT
+  // and credited directly to the user's USDT wallet (1 USD = 1,000,000 micro-USDT, exponent 6).
+  const asset = "USDT";
+  const unitsNumber = Math.round(netUsd * 1_000_000);
   const amountUnits = BigInt(unitsNumber);
 
   if (amountUnits <= 0n) {
@@ -64,12 +68,12 @@ export const POST = route(async (req) => {
   }
 
   const userAccounts = await getUserAccounts(userId);
-  const targetWallet = isMwk ? userAccounts.mwk_wallet : userAccounts.usdt_wallet;
-  const clearing = await getSystemAccount("collection_clearing", asset);
+  const targetWallet = userAccounts.usdt_wallet;
+  const clearing = await getSystemAccount("collection_clearing", "USDT");
 
   const depositId = crypto.randomUUID();
 
-  // 1. Post double-entry journal atomically to credit user's wallet
+  // 1. Post double-entry journal atomically to credit user's USDT wallet
   await postJournal({
     operationId: depositId,
     type: "deposit",
@@ -89,7 +93,7 @@ export const POST = route(async (req) => {
     user_id: userId,
     method: method === "mobile_money" ? "mobile_money" : "bank_transfer",
     amount_units: amountUnits.toString(),
-    asset: asset,
+    asset: "USDT",
     provider: method === "card" ? "linked_card" : "mock",
     provider_reference: providerRef,
     status: "confirmed",
@@ -97,13 +101,15 @@ export const POST = route(async (req) => {
 
   // 3. Create notification for the user
   const cardTitle = usedMethod ? `${usedMethod.title} (${usedMethod.subtitle})` : "Linked Card";
-  const formattedAmount = isMwk ? `${rawAmount.toLocaleString()} MWK` : `$${netUsd.toFixed(2)} USD`;
+  const formattedDeposit = currency === "USD"
+    ? `$${netUsd.toFixed(2)} USD`
+    : `${rawAmount.toLocaleString()} ${currency} ($${netUsd.toFixed(2)} USDT)`;
 
   const existingNotifications = (userData.user.user_metadata?.notifications as any[]) || [];
   const newNotification = {
     id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     title: "Deposit Confirmed",
-    message: `Your deposit of ${formattedAmount} from ${cardTitle} was successful.`,
+    message: `Your deposit of ${formattedDeposit} from ${cardTitle} was credited to your USDT Wallet.`,
     time: "Just now",
     unread: true,
     created_at: new Date().toISOString(),
@@ -119,9 +125,10 @@ export const POST = route(async (req) => {
   return ok({
     success: true,
     deposit_id: depositId,
-    amount: formattedAmount,
-    asset,
+    amount: `$${netUsd.toFixed(2)} USDT`,
+    asset: "USDT",
     net_usd: netUsd,
+    target_wallet: "USDT Wallet",
     payment_method: usedMethod || { title: "Credit/Debit Card", subtitle: "Card" },
   });
 });

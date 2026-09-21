@@ -4,19 +4,19 @@ import { useState, useEffect } from "react";
 import {
   X,
   CreditCard,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Loader2,
   DollarSign,
+  ArrowRight,
+  Wallet,
 } from "lucide-react";
 import {
   toMinorUnits,
-  fromMinorUnits,
   formatMinorUnits,
   parseMinorUnits,
 } from "@/lib/contracts/money";
-import type { QuoteResponse, ConversionResponse, FundCardResponse } from "@/lib/contracts";
+import type { FundCardResponse } from "@/lib/contracts";
 
 interface FundCardModalProps {
   isOpen: boolean;
@@ -25,7 +25,6 @@ interface FundCardModalProps {
   cardId: string | null;
   cardLast4: string;
   currentCardBalanceUsd: string;
-  availableMwkUnits: bigint;
   availableUsdtUnits: bigint;
 }
 
@@ -36,13 +35,10 @@ export function FundCardModal({
   cardId,
   cardLast4,
   currentCardBalanceUsd,
-  availableMwkUnits,
   availableUsdtUnits,
 }: FundCardModalProps) {
-  const [sourceType, setSourceType] = useState<"mwk" | "usdt">("mwk");
-  const [mwkAmount, setMwkAmount] = useState<string>("50000");
-  const [usdtAmount, setUsdtAmount] = useState<string>("10");
-  
+  const [usdtAmount, setUsdtAmount] = useState<string>("");
+
   // Loading & stage state
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>("");
@@ -52,7 +48,6 @@ export function FundCardModal({
   const [successData, setSuccessData] = useState<{
     amountUsd: string;
     newCardBalanceUsd: string;
-    source: "MWK" | "USDT";
   } | null>(null);
   const [countdown, setCountdown] = useState(5);
 
@@ -107,10 +102,6 @@ export function FundCardModal({
         setErrorMsg(null);
         setIsLoading(false);
         setCountdown(5);
-        // If user has no MWK but has USDT, default to USDT
-        if (availableMwkUnits <= 0n && availableUsdtUnits > 0n) {
-          setSourceType("usdt");
-        }
       }
 
       if (!cardId && !activeCardId) {
@@ -135,30 +126,18 @@ export function FundCardModal({
       setSuccessData(null);
       setErrorMsg(null);
       setIsLoading(false);
+      setUsdtAmount("");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Real-time calculations for MWK
-  const cleanMwk = mwkAmount.replace(/[^0-9]/g, "");
-  const rawMwkNumber = parseInt(cleanMwk, 10) || 0;
-  // 1 USDT = 2,000 MWK, fee = 2%
-  const grossUsdMwk = rawMwkNumber > 0 ? rawMwkNumber / 2000 : 0;
-  const mwkFeeUsd = grossUsdMwk * 0.02;
-  const netUsdMwk = Math.max(0, grossUsdMwk - mwkFeeUsd);
-
-  // Real-time calculations for USDT
+  // Real-time calculations for USDT top-up
   const cleanUsdt = usdtAmount.replace(/[^0-9.]/g, "");
   const rawUsdtNumber = parseFloat(cleanUsdt) || 0;
-  const netUsdFromUsdt = rawUsdtNumber;
-
   const currentCardNum = parseFloat(activeCardBalance || currentCardBalanceUsd) || 0;
-  const projectedCardBalance =
-    sourceType === "mwk"
-      ? (currentCardNum + netUsdMwk).toFixed(2)
-      : (currentCardNum + netUsdFromUsdt).toFixed(2);
+  const projectedCardBalance = (currentCardNum + rawUsdtNumber).toFixed(2);
 
   const handleFundCard = async () => {
     setErrorMsg(null);
@@ -188,142 +167,53 @@ export function FundCardModal({
       return;
     }
 
+    if (rawUsdtNumber <= 0) {
+      setErrorMsg("Please enter a valid top-up amount.");
+      return;
+    }
+
+    const usdtUnits = toMinorUnits(cleanUsdt, "USDT");
+    if (usdtUnits > availableUsdtUnits) {
+      setErrorMsg("Amount exceeds your available USDT wallet balance.");
+      return;
+    }
+
     setIsLoading(true);
+    setLoadingStage("Topping up virtual card from USDT wallet...");
 
     try {
-      if (sourceType === "mwk") {
-        if (rawMwkNumber <= 0) {
-          throw new Error("Please enter a valid amount in MWK.");
-        }
+      const fundRes = await fetch(`/api/v1/cards/${targetCardId}/fund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          amount_units: usdtUnits.toString(),
+        }),
+      });
 
-        const inputUnits = BigInt(rawMwkNumber) * 100n; // MWK exponent 2 (tambala)
-        if (inputUnits > availableMwkUnits) {
-          throw new Error("Amount exceeds your available MWK wallet balance.");
-        }
-
-        // Stage 1: Get live Quote
-        setLoadingStage("Getting guaranteed exchange quote...");
-        const quoteRes = await fetch("/api/v1/quotes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source_asset: "MWK",
-            destination_asset: "USDT",
-            source_units: inputUnits.toString(),
-          }),
-        });
-
-        if (!quoteRes.ok) {
-          const errData = await quoteRes.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || "Failed to create quote.");
-        }
-
-        const quoteData = (await quoteRes.json()) as QuoteResponse;
-
-        // Stage 2: Execute Conversion MWK -> USDT
-        setLoadingStage("Converting MWK to USDT...");
-        const convRes = await fetch("/api/v1/conversions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": crypto.randomUUID(),
-          },
-          body: JSON.stringify({
-            quote_id: quoteData.quote_id,
-          }),
-        });
-
-        if (!convRes.ok) {
-          const errData = await convRes.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || "Failed to complete conversion.");
-        }
-
-        const convData = (await convRes.json()) as ConversionResponse;
-
-        // Stage 3: Fund Virtual Card with converted USDT
-        setLoadingStage("Funding virtual card...");
-        const fundRes = await fetch(`/api/v1/cards/${targetCardId}/fund`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": crypto.randomUUID(),
-          },
-          body: JSON.stringify({
-            amount_units: convData.destination.amount_units,
-          }),
-        });
-
-        if (!fundRes.ok) {
-          const errData = await fundRes.json().catch(() => ({}));
-          throw new Error(
-            errData?.error?.message ||
-              "Converted USDT to your wallet, but funding the card encountered an error. You can fund directly from your USDT wallet."
-          );
-        }
-
-        const fundData = (await fundRes.json()) as FundCardResponse;
-        const fundedAmount = formatMinorUnits(parseMinorUnits(fundData.amount.amount_units), "USDT", {
-          code: false,
-        });
-
-        const newFundingBalance = formatMinorUnits(
-          parseMinorUnits(fundData.funding.available_units),
-          "USDT",
-          { code: false }
-        );
-
-        setSuccessData({
-          amountUsd: fundedAmount,
-          newCardBalanceUsd: newFundingBalance,
-          source: "MWK",
-        });
-        onSuccess();
-      } else {
-        // Direct USDT Funding
-        if (rawUsdtNumber <= 0) {
-          throw new Error("Please enter a valid USDT amount.");
-        }
-
-        const usdtUnits = toMinorUnits(cleanUsdt, "USDT");
-        if (usdtUnits > availableUsdtUnits) {
-          throw new Error("Amount exceeds your available USDT wallet balance.");
-        }
-
-        setLoadingStage("Allocating USDT to virtual card...");
-        const fundRes = await fetch(`/api/v1/cards/${targetCardId}/fund`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": crypto.randomUUID(),
-          },
-          body: JSON.stringify({
-            amount_units: usdtUnits.toString(),
-          }),
-        });
-
-        if (!fundRes.ok) {
-          const errData = await fundRes.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || "Failed to fund virtual card.");
-        }
-
-        const fundData = (await fundRes.json()) as FundCardResponse;
-        const fundedAmount = formatMinorUnits(parseMinorUnits(fundData.amount.amount_units), "USDT", {
-          code: false,
-        });
-
-        const newFundingBalance = formatMinorUnits(
-          parseMinorUnits(fundData.funding.available_units),
-          "USDT",
-          { code: false }
-        );
-
-        setSuccessData({
-          amountUsd: fundedAmount,
-          newCardBalanceUsd: newFundingBalance,
-          source: "USDT",
-        });
-        onSuccess();
+      if (!fundRes.ok) {
+        const errData = await fundRes.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || "Failed to top up virtual card.");
       }
+
+      const fundData = (await fundRes.json()) as FundCardResponse;
+      const fundedAmount = formatMinorUnits(parseMinorUnits(fundData.amount.amount_units), "USDT", {
+        code: false,
+      });
+
+      const newFundingBalance = formatMinorUnits(
+        parseMinorUnits(fundData.funding.available_units),
+        "USDT",
+        { code: false }
+      );
+
+      setSuccessData({
+        amountUsd: fundedAmount,
+        newCardBalanceUsd: newFundingBalance,
+      });
+      onSuccess();
     } catch (err: any) {
       console.error("Card funding error:", err);
       setErrorMsg(err.message || "An unexpected error occurred while funding your card.");
@@ -367,8 +257,15 @@ export function FundCardModal({
               </div>
               <div className="flex justify-between items-center text-slate-400">
                 <span>Source:</span>
-                <span className="font-medium text-slate-200">
-                  {successData.source === "MWK" ? "MWK Wallet (Converted)" : "USDT Wallet"}
+                <span className="font-medium text-teal-400 flex items-center gap-1">
+                  <Wallet className="w-3.5 h-3.5" />
+                  USDT Wallet
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-slate-400">
+                <span>Destination:</span>
+                <span className="font-mono text-slate-200">
+                  Virtual Visa (•••• {activeLast4 || cardLast4 || "4214"})
                 </span>
               </div>
               <div className="h-[1px] bg-slate-800" />
@@ -411,10 +308,10 @@ export function FundCardModal({
                 </div>
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight">
-                    Fund Virtual Card
+                    Top Up Virtual Card
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-400">
-                    Add spendable USD balance to your card
+                    Instantly transfer from your USDT Wallet with $0 fee
                   </p>
                 </div>
               </div>
@@ -432,56 +329,39 @@ export function FundCardModal({
 
             {/* Scrollable Body */}
             <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
-              {/* Target Card Banner */}
-              <div className="w-full bg-[#070e1c] rounded-2xl p-3.5 border border-slate-800/80 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="px-2 py-1 rounded bg-slate-800 text-[11px] font-mono font-bold text-[#DFB338]">
-                    •••• {activeLast4 || cardLast4 || "4214"}
+              {/* Source & Destination Pathway Banner */}
+              <div className="w-full bg-[#070e1c] rounded-2xl p-4 border border-slate-800/80 flex items-center justify-between gap-3">
+                {/* Source: USDT Wallet */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-400 shrink-0">
+                    <Wallet className="w-4 h-4" />
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">Virtual Visa</span>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
+                      From: USDT Wallet
+                    </span>
+                    <span className="text-sm font-bold text-teal-400 font-mono">
+                      ${formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block">
-                    Current Card Spend
-                  </span>
-                  <span className="text-sm font-bold text-[#DFB338]">
-                    ${activeCardBalance || currentCardBalanceUsd} USD
-                  </span>
-                </div>
-              </div>
 
-              {/* Source Selection Tabs */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-[#070e1c] rounded-2xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSourceType("mwk");
-                    setErrorMsg(null);
-                  }}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                    sourceType === "mwk"
-                      ? "bg-gradient-to-r from-[#DFB338] to-[#B8911E] text-stone-900 shadow-md"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <span>🇲🇼</span>
-                  <span>Convert MWK</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSourceType("usdt");
-                    setErrorMsg(null);
-                  }}
-                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                    sourceType === "usdt"
-                      ? "bg-gradient-to-r from-[#DFB338] to-[#B8911E] text-stone-900 shadow-md"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <DollarSign className="w-4 h-4" />
-                  <span>Direct USDT</span>
-                </button>
+                <ArrowRight className="w-4 h-4 text-slate-500 shrink-0" />
+
+                {/* Target: Virtual Card */}
+                <div className="flex items-center gap-3 text-right">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
+                      To: Virtual Card
+                    </span>
+                    <span className="text-sm font-bold text-[#DFB338] font-mono">
+                      ${activeCardBalance || currentCardBalanceUsd} USD
+                    </span>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-[#DFB338]/15 border border-[#DFB338]/30 flex items-center justify-center text-[#DFB338] shrink-0 font-mono text-xs font-bold">
+                    Visa
+                  </div>
+                </div>
               </div>
 
               {/* Error Notification */}
@@ -492,177 +372,98 @@ export function FundCardModal({
                 </div>
               )}
 
-              {/* Form Fields: Convert MWK */}
-              {sourceType === "mwk" && (
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center text-xs mb-1.5">
-                      <label className="font-semibold text-slate-300">Amount to Convert (MWK)</label>
-                      <span className="text-slate-400">
-                        Available:{" "}
-                        <strong className="text-white">
-                          {formatMinorUnits(availableMwkUnits, "MWK", { code: false })} MWK
-                        </strong>
-                      </span>
-                    </div>
+              {/* Amount Input */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center text-xs mb-1.5">
+                    <label className="font-semibold text-slate-300">Amount to Top Up</label>
+                    <span className="text-slate-400">
+                      Available:{" "}
+                      <strong className="text-white">
+                        ${formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
+                      </strong>
+                    </span>
+                  </div>
 
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={mwkAmount}
-                        onChange={(e) => setMwkAmount(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder="50000"
-                        disabled={isLoading}
-                        className="w-full bg-[#070e1c] border border-slate-700/80 rounded-2xl py-3 px-4 text-lg font-mono font-bold text-white focus:outline-none focus:border-[#DFB338] focus:ring-1 focus:ring-[#DFB338] transition-all disabled:opacity-60"
-                      />
-                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#DFB338] bg-[#DFB338]/10 px-2 py-1 rounded-md">
-                        MWK
-                      </div>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">
+                      $
                     </div>
-
-                    {/* Preset Amount Chips */}
-                    <div className="flex flex-wrap gap-2 mt-2.5">
-                      {[10000, 25000, 50000, 100000].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setMwkAmount(preset.toString())}
-                          disabled={isLoading}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium transition-colors border border-slate-700/50 cursor-pointer"
-                        >
-                          +{preset.toLocaleString()}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const major = fromMinorUnits(availableMwkUnits, "MWK").split(".")[0];
-                          setMwkAmount(major || "0");
-                        }}
-                        disabled={isLoading}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-[#DFB338]/15 hover:bg-[#DFB338]/25 text-[#DFB338] font-bold transition-colors border border-[#DFB338]/30 cursor-pointer"
-                      >
-                        Max
-                      </button>
+                    <input
+                      type="text"
+                      value={usdtAmount}
+                      onChange={(e) => setUsdtAmount(e.target.value)}
+                      placeholder="0.00"
+                      disabled={isLoading}
+                      className="w-full bg-[#070e1c] border border-slate-700/80 rounded-2xl py-3 pl-8 pr-20 text-xl font-mono font-bold text-white focus:outline-none focus:border-[#DFB338] focus:ring-1 focus:ring-[#DFB338] transition-all disabled:opacity-60"
+                    />
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-teal-400 bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded-md">
+                      USDT
                     </div>
                   </div>
 
-                  {/* Live Quote Summary Card */}
-                  <div className="bg-[#070e1c] rounded-2xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-400">
-                    <div className="flex justify-between items-center">
-                      <span>Guaranteed Rate:</span>
-                      <span className="font-semibold text-slate-200">1 USDT = 2,000.00 MWK</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Conversion Fee (2%):</span>
-                      <span className="font-semibold text-slate-200">
-                        ${mwkFeeUsd.toFixed(2)} USD ({(rawMwkNumber * 0.02).toLocaleString()} MWK)
-                      </span>
-                    </div>
-                    <div className="h-[1px] bg-slate-800 my-1" />
-                    <div className="flex justify-between items-center text-sm font-semibold text-slate-200">
-                      <span>Net Card Deposit:</span>
-                      <span className="text-green-400 font-bold font-mono text-base">
-                        +${netUsdMwk.toFixed(2)} USD
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span>Projected Card Balance:</span>
-                      <span className="text-[#DFB338] font-bold">
-                        ${activeCardBalance || currentCardBalanceUsd} → ${projectedCardBalance} USD
-                      </span>
-                    </div>
+                  {/* Preset Amount Chips */}
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {[5, 10, 25, 50].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setUsdtAmount(preset.toString())}
+                        disabled={isLoading}
+                        className="text-xs px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium transition-colors border border-slate-700/50 cursor-pointer"
+                      >
+                        +${preset}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const major = formatMinorUnits(availableUsdtUnits, "USDT", { code: false });
+                        setUsdtAmount(major);
+                      }}
+                      disabled={isLoading}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-[#DFB338]/15 hover:bg-[#DFB338]/25 text-[#DFB338] font-bold transition-colors border border-[#DFB338]/30 cursor-pointer"
+                    >
+                      Max
+                    </button>
                   </div>
                 </div>
-              )}
 
-              {/* Form Fields: Direct USDT */}
-              {sourceType === "usdt" && (
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center text-xs mb-1.5">
-                      <label className="font-semibold text-slate-300">Amount to Transfer (USDT)</label>
-                      <span className="text-slate-400">
-                        Available:{" "}
-                        <strong className="text-white">
-                          ${formatMinorUnits(availableUsdtUnits, "USDT", { code: false })} USDT
-                        </strong>
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={usdtAmount}
-                        onChange={(e) => setUsdtAmount(e.target.value)}
-                        placeholder="10.00"
-                        disabled={isLoading}
-                        className="w-full bg-[#070e1c] border border-slate-700/80 rounded-2xl py-3 px-4 text-lg font-mono font-bold text-white focus:outline-none focus:border-[#DFB338] focus:ring-1 focus:ring-[#DFB338] transition-all disabled:opacity-60"
-                      />
-                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#DFB338] bg-[#DFB338]/10 px-2 py-1 rounded-md">
-                        USDT
-                      </div>
-                    </div>
-
-                    {/* Preset Amount Chips */}
-                    <div className="flex flex-wrap gap-2 mt-2.5">
-                      {[5, 10, 25, 50].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setUsdtAmount(preset.toString())}
-                          disabled={isLoading}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium transition-colors border border-slate-700/50 cursor-pointer"
-                        >
-                          +${preset}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const major = formatMinorUnits(availableUsdtUnits, "USDT", { code: false });
-                          setUsdtAmount(major);
-                        }}
-                        disabled={isLoading}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-[#DFB338]/15 hover:bg-[#DFB338]/25 text-[#DFB338] font-bold transition-colors border border-[#DFB338]/30 cursor-pointer"
-                      >
-                        Max
-                      </button>
-                    </div>
+                {/* Transfer Breakdown Card */}
+                <div className="bg-[#070e1c] rounded-2xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-400">
+                  <div className="flex justify-between items-center">
+                    <span>Transfer Fee:</span>
+                    <span className="font-semibold text-green-400">$0.00 (Free)</span>
                   </div>
-
-                  {/* Transfer Summary Card */}
-                  <div className="bg-[#070e1c] rounded-2xl p-4 border border-slate-800 space-y-2.5 text-xs text-slate-400">
-                    <div className="flex justify-between items-center">
-                      <span>Internal Transfer Fee:</span>
-                      <span className="font-semibold text-green-400">$0.00 (Free)</span>
-                    </div>
-                    <div className="h-[1px] bg-slate-800 my-1" />
-                    <div className="flex justify-between items-center text-sm font-semibold text-slate-200">
-                      <span>Net Card Deposit:</span>
-                      <span className="text-green-400 font-bold font-mono text-base">
-                        +${netUsdFromUsdt.toFixed(2)} USD
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span>Projected Card Balance:</span>
-                      <span className="text-[#DFB338] font-bold">
-                        ${activeCardBalance || currentCardBalanceUsd} → ${projectedCardBalance} USD
-                      </span>
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <span>Conversion Rate:</span>
+                    <span className="font-semibold text-slate-200">1 USDT = $1.00 USD (1:1 Direct)</span>
+                  </div>
+                  <div className="h-[1px] bg-slate-800 my-1" />
+                  <div className="flex justify-between items-center text-sm font-semibold text-slate-200">
+                    <span>Net Card Top-Up:</span>
+                    <span className="text-green-400 font-bold font-mono text-base">
+                      +${rawUsdtNumber.toFixed(2)} USD
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span>Projected Card Balance:</span>
+                    <span className="text-[#DFB338] font-bold font-mono">
+                      ${activeCardBalance || currentCardBalanceUsd} → ${projectedCardBalance} USD
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* Action Buttons */}
+              {/* Action Button */}
               <div className="pt-2">
                 <button
                   type="button"
                   onClick={handleFundCard}
                   disabled={
                     isLoading ||
-                    (sourceType === "mwk" && (rawMwkNumber <= 0 || BigInt(rawMwkNumber) * 100n > availableMwkUnits)) ||
-                    (sourceType === "usdt" && (rawUsdtNumber <= 0 || rawUsdtNumber > Number(availableUsdtUnits) / 1000000))
+                    rawUsdtNumber <= 0 ||
+                    rawUsdtNumber > Number(availableUsdtUnits) / 1000000
                   }
                   className="w-full py-4 px-6 rounded-2xl bg-gradient-to-b from-[#DFB338] to-[#B8911E] font-bold text-stone-900 shadow-[0_8px_25px_rgba(201,162,39,0.35)] hover:brightness-105 active:scale-[0.99] transition-all text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
@@ -672,9 +473,7 @@ export function FundCardModal({
                       <span>{loadingStage || "Processing..."}</span>
                     </>
                   ) : (
-                    <span>
-                      {sourceType === "mwk" ? "Convert & Fund Card" : "Transfer to Card"}
-                    </span>
+                    <span>Top Up Virtual Card</span>
                   )}
                 </button>
               </div>
