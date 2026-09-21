@@ -154,8 +154,7 @@ export default function LoginPage() {
       {/* Navigation Header */}
       <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-start px-2 py-4">
         <Link href="/" className="flex items-center gap-1 font-bold text-2xl tracking-tight group">
-          <span className="text-[#C9A227] text-3xl">LT</span>
-          <span className="text-[#C9A227] ml-1">LAD</span>
+          <span className="text-[#C9A227]">LAD</span>
           <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
         </Link>
       </header>
@@ -172,8 +171,7 @@ export default function LoginPage() {
           {/* Logo & Header — Non-clickable logo inside card */}
           <div className="relative z-10 flex flex-col items-center mb-7">
             <div className="flex items-center gap-1 font-bold text-2xl tracking-tight mb-5 select-none cursor-default">
-              <span className="text-[#C9A227] text-3xl">LT</span>
-              <span className="text-[#C9A227] ml-1">LAD</span>
+              <span className="text-[#C9A227]">LAD</span>
               <span className="text-white">Transfer</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold text-white text-center">

@@ -124,6 +124,7 @@ export default function ProfilePage() {
   
   // Payment methods state
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const linkedAccounts = paymentMethods.filter((m) => m.type !== "card");
 
   // Modals state
   const [showAddMethodModal, setShowAddMethodModal] = useState(false);
@@ -131,11 +132,9 @@ export default function ProfilePage() {
   const [editFormData, setEditFormData] = useState({ ...profileData });
 
   // Add Method Form State
-  const [newMethodType, setNewMethodType] = useState<"card" | "bank" | "mobile">("card");
+  const [newMethodType, setNewMethodType] = useState<"bank" | "mobile">("mobile");
   const [newMethodName, setNewMethodName] = useState("");
   const [newMethodNumber, setNewMethodNumber] = useState("");
-  const [newMethodCvv, setNewMethodCvv] = useState("");
-  const [newMethodExpiry, setNewMethodExpiry] = useState("");
 
   // Edit Card Method Form State
   const [showEditMethodModal, setShowEditMethodModal] = useState(false);
@@ -246,8 +245,6 @@ export default function ProfilePage() {
           type: newMethodType,
           name: newMethodName,
           number: newMethodNumber,
-          cvv: newMethodType === "card" ? newMethodCvv : undefined,
-          expiry: newMethodType === "card" ? newMethodExpiry : undefined,
         }),
       });
 
@@ -269,8 +266,6 @@ export default function ProfilePage() {
         setShowAddMethodModal(false);
         setNewMethodName("");
         setNewMethodNumber("");
-        setNewMethodCvv("");
-        setNewMethodExpiry("");
       }
     } catch (err) {
       console.error("Failed to add payment method", err);
@@ -682,7 +677,7 @@ export default function ProfilePage() {
                   Linked Payment Methods
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Manage accounts and cards used for global deposits
+                  Manage accounts used for global deposits
                 </p>
               </div>
 
@@ -698,16 +693,16 @@ export default function ProfilePage() {
             </div>
 
             {/* Methods Grid or Empty State */}
-            {paymentMethods.length === 0 ? (
+            {linkedAccounts.length === 0 ? (
               <div className="rounded-2xl bg-[#131F37]/50 border border-slate-800/80 p-8 sm:p-10 flex flex-col items-center justify-center text-center">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-[#DFB338] mb-3 shadow-inner">
-                  <CreditCard className="w-6 h-6 stroke-[1.8]" />
+                  <Building2 className="w-6 h-6 stroke-[1.8]" />
                 </div>
                 <p className="text-sm sm:text-base font-bold text-white mb-1.5">
                   Link an account to start spending!
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mb-5 leading-relaxed">
-                  Add a credit or debit card, bank account, or mobile money wallet to fund your card and manage global transactions.
+                  Add a bank account or mobile money wallet to fund your card and manage global transactions.
                 </p>
                 <button
                   type="button"
@@ -720,7 +715,7 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {paymentMethods.map((method) => (
+                {linkedAccounts.map((method) => (
                   <div
                     key={method.id}
                     className="rounded-2xl bg-[#131F37] border border-slate-700/60 p-4 flex items-center justify-between group hover:border-[#DFB338]/40 transition-colors"
@@ -796,24 +791,12 @@ export default function ProfilePage() {
               Link Payment Method
             </h3>
             <p className="text-xs text-slate-400 mb-5">
-              Add a new card, bank account, or mobile money gateway
+              Add a bank account or mobile money gateway
             </p>
 
             <form onSubmit={handleAddPaymentMethod} className="space-y-4">
               {/* Type selector */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNewMethodType("card")}
-                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-colors ${
-                    newMethodType === "card"
-                      ? "border-[#DFB338] bg-[#DFB338]/10 text-[#DFB338]"
-                      : "border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-800"
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>Card</span>
-                </button>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setNewMethodType("bank")}
@@ -843,68 +826,33 @@ export default function ProfilePage() {
               {/* Institution / Provider Name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300">
-                  {newMethodType === "card" ? "Card Name / Issuer" : newMethodType === "bank" ? "Bank Name" : "Provider Name"}
+                  {newMethodType === "bank" ? "Bank Name" : "Provider Name"}
                 </label>
                 <input
                   type="text"
                   required
                   value={newMethodName}
                   onChange={(e) => setNewMethodName(e.target.value)}
-                  placeholder={newMethodType === "card" ? "e.g. Visa Debit" : newMethodType === "bank" ? "e.g. National Bank of Malawi" : "e.g. Airtel Money"}
+                  placeholder={newMethodType === "bank" ? "e.g. National Bank of Malawi" : "e.g. Airtel Money"}
                   className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500"
                 />
               </div>
 
-              {/* Account / Card Number */}
+              {/* Account / Phone Number */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300">
-                  {newMethodType === "card" ? "Card Number" : newMethodType === "bank" ? "Account Number" : "Phone Number"}
+                  {newMethodType === "bank" ? "Account Number" : "Phone Number"}
                 </label>
                 <input
                   type="text"
                   required
                   value={newMethodNumber}
-                  onChange={(e) => setNewMethodNumber(newMethodType === "card" ? formatCardNumber(e.target.value) : e.target.value)}
-                  placeholder={newMethodType === "card" ? "XXXX XXXX XXXX 4321" : newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
-                  maxLength={newMethodType === "card" ? 19 : 30}
+                  onChange={(e) => setNewMethodNumber(e.target.value)}
+                  placeholder={newMethodType === "bank" ? "1002938481" : "+265 99 123 4567"}
+                  maxLength={30}
                   className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono tracking-wider"
                 />
               </div>
-
-              {/* Expiration Date & CVV Row for Card */}
-              {newMethodType === "card" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">
-                      Expiration Date
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newMethodExpiry}
-                      onChange={(e) => setNewMethodExpiry(formatExpiry(e.target.value))}
-                      placeholder="MM/YY"
-                      maxLength={5}
-                      className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">
-                      CVV / CVC
-                    </label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      required
-                      value={newMethodCvv}
-                      onChange={(e) => setNewMethodCvv(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
-                      placeholder="123"
-                      className="w-full bg-[#131F37] border border-slate-700 text-white rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#DFB338] transition-colors placeholder:text-slate-500 font-mono text-center tracking-widest"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="pt-3">
                 <button
@@ -1009,7 +957,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Edit Linked Card Modal */}
+      {/* Edit saved card (legacy; cards are no longer offered as a funding method) */}
       {showEditMethodModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-[#0B1528] rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-700 text-white relative animate-in zoom-in-95 duration-150">
@@ -1029,7 +977,7 @@ export default function ProfilePage() {
                 <CreditCard className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Edit Linked Card</h3>
+                <h3 className="text-xl font-bold text-white">Edit Payment Method</h3>
                 <p className="text-xs text-slate-400">
                   Update your card number, CVV, and expiration date
                 </p>
