@@ -1,14 +1,16 @@
 # LADTransfer
+> **Connecting local earnings to global opportunity.**
 
-## Devpost Link
-https://devpost.com/software/1435244/joins/CZ8OF6byHyxB46CdRptdYQ
+[![Live Demo](https://img.shields.io/badge/Live_Demo-sase--hack2026.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://sase-hack2026.vercel.app/)
+[![Devpost](https://img.shields.io/badge/Devpost-Submission_Overview-003E54?style=for-the-badge&logo=devpost&logoColor=white)](https://devpost.com/software/1435244)
+[![Figma](https://img.shields.io/badge/Figma-Interactive_Prototype-F24E1E?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/design/o0G7GSfx08dRRVCV4s8QuZ/SASEHack?node-id=0-1&t=9K78YISFETSsfSJf-1)
+[![Card Infrastructure](https://img.shields.io/badge/Card_API-Lithic-000000?style=for-the-badge)](https://www.lithic.com/)
 
-## Figma Link
-https://www.figma.com/design/o0G7GSfx08dRRVCV4s8QuZ/SASEHack?node-id=0-1&t=9K78YISFETSsfSJf-1
+🚀 **Live Demo:** [LAD Transfer](https://sase-hack2026.vercel.app/)
 
-Lanre Ladejobi, Thembi Loga, Deryck Assenga, Agronil Das
+**Team:** Lanre Ladejobi · Thembi Loga · Deryck Assenga · Agronil Das
 
-_Connecting local earnings to global opportunity._
+---
 
 **Being able to afford something should mean being able to pay for it.**
 
