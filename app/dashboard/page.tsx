@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, ArrowUpRight, Eye, EyeOff, CreditCard, Plus } from "lucide-react";
+import { BarChart3, ArrowUpRight, Eye, EyeOff, CreditCard, Plus, ShoppingBag } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { formatMinorUnits, parseMinorUnits } from "@/lib/contracts/money";
 import type { CardResponse, MeResponse, WalletsResponse, CardsResponse } from "@/lib/contracts";
@@ -425,6 +425,18 @@ export default function DashboardPage() {
             <span>Analytics</span>
           </Link>
         </div>
+
+        {/* Demo: spend the card at a simulated merchant */}
+        {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+          <Link
+            href="/checkout"
+            className="mt-5 sm:mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-slate-200 shadow-sm text-xs sm:text-sm font-semibold text-stone-600 hover:text-stone-900 hover:border-stone-300 transition-colors"
+          >
+            <ShoppingBag className="w-4 h-4 text-[#C9A227]" />
+            <span>Spend your card at a demo merchant</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
       </main>
 
       {/* Footer */}

@@ -307,6 +307,30 @@ export type AuthorizationResponse = {
   created_at: string;
 };
 
+/**
+ * POST /api/v1/demo/checkout (requires Idempotency-Key)
+ *
+ * A simulated merchant checkout: authorises AND captures in one call, the way
+ * a point-of-sale purchase feels to the cardholder. Same body as a purchase.
+ * Declines return 422 ApiError (CARD_FROZEN | LIMIT_EXCEEDED | INSUFFICIENT_FUNDS).
+ */
+export type CheckoutRequest = CreatePurchaseRequest;
+
+/** POST /api/v1/demo/checkout → 201 */
+export type CheckoutResponse = {
+  authorization: AuthorizationResponse; // status is "captured" after checkout
+  capture: DemoEventResponse;
+  /** card_funding after capture: held_units released, posted_units reduced. */
+  funding: WalletBalance;
+};
+
+/** POST /api/v1/demo/checkout/:authorization_id/refund → 200 */
+export type RefundResponse = {
+  refund: DemoEventResponse;
+  /** card_funding after the refund journal posts. */
+  funding: WalletBalance;
+};
+
 export type DemoEventOutcome =
   | "deposit_confirmed"
   | "deposit_failed"
@@ -494,4 +518,5 @@ export const IDEMPOTENT_ROUTES = [
   "POST /api/v1/conversions",
   "POST /api/v1/cards/:id/fund",
   "POST /api/v1/demo/purchases",
+  "POST /api/v1/demo/checkout",
 ] as const;
