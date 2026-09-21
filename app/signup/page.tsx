@@ -161,10 +161,10 @@ export default function Signup() {
 
       {/* Top left logo */}
       <div className="absolute top-6 left-6 lg:top-8 lg:left-8 z-10">
-        <Link href="/" className="flex items-center gap-1 font-bold text-2xl tracking-tight">
+        <Link href="/" className="flex items-center gap-1 font-bold text-2xl tracking-tight group">
           <span className="text-[#C9A227] text-3xl">LT</span>
           <span className="text-[#C9A227] ml-1">LAD</span>
-          <span className="text-stone-900">Transfer</span>
+          <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
         </Link>
       </div>
 

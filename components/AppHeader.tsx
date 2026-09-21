@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
@@ -16,6 +16,15 @@ export function AppHeader({ active, onInterceptNavigate }: AppHeaderProps) {
   const [userName, setUserName] = useState<string>("User");
   const [initials, setInitials] = useState<string>("LT");
   const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const activeNavRef = useRef<HTMLButtonElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Mouse drag-to-scroll support for desktop testing of mobile widths
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+  const moved = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,7 +70,52 @@ export function AppHeader({ active, onInterceptNavigate }: AppHeaderProps) {
     };
   }, []);
 
+  // Smoothly scroll active item into view when active tab changes on mobile
+  useEffect(() => {
+    if (activeNavRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const element = activeNavRef.current;
+      const cRect = container.getBoundingClientRect();
+      const eRect = element.getBoundingClientRect();
+
+      if (eRect.left < cRect.left || eRect.right > cRect.right) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }
+    }
+  }, [active]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    isDragging.current = true;
+    moved.current = false;
+    startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
+    scrollLeft.current = scrollContainerRef.current.scrollLeft;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !scrollContainerRef.current) return;
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = x - startX.current;
+    if (Math.abs(walk) > 4) {
+      moved.current = true;
+      e.preventDefault();
+      scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
+    }
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isDragging.current = false;
+  };
+
   const handleNav = (url: string) => {
+    if (moved.current) {
+      moved.current = false;
+      return;
+    }
     if (onInterceptNavigate) {
       onInterceptNavigate(url);
     } else {
@@ -70,98 +124,111 @@ export function AppHeader({ active, onInterceptNavigate }: AppHeaderProps) {
   };
 
   return (
-    <header className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-5">
-      <div className="bg-[#0B1528] rounded-2xl px-5 py-3.5 flex items-center justify-between shadow-lg border border-slate-800">
-        {/* Brand Logo - Navigate directly to Dashboard */}
-        <button
-          type="button"
-          onClick={() => handleNav("/dashboard")}
-          className="flex items-center gap-1 font-bold text-xl tracking-tight text-left group"
-        >
-          <span className="text-[#C9A227] text-2xl">LT</span>
-          <span className="text-[#C9A227] ml-0.5">LAD</span>
-          <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
-        </button>
-
-        {/* Consistent Nav Items: Dashboard, Analytics, Deposit */}
-        <nav className="flex items-center gap-2">
+    <header className="relative z-20 w-full max-w-7xl mx-auto px-3 sm:px-6 pt-3 sm:pt-5">
+      <div
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
+        className="header-scroll bg-[#0B1528] rounded-2xl shadow-lg border border-slate-800 scroll-smooth cursor-grab active:cursor-grabbing md:cursor-default select-none"
+      >
+        <div className="px-3.5 py-2.5 sm:px-5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-6 min-w-max md:min-w-0 w-full">
+          {/* Brand Logo - Navigate directly to Dashboard */}
           <button
             type="button"
             onClick={() => handleNav("/dashboard")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-              active === "dashboard"
-                ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-            }`}
+            className="shrink-0 flex items-center gap-1 font-bold text-lg sm:text-xl tracking-tight text-left group"
           >
-            Dashboard
-          </button>
-          <button
-            type="button"
-            onClick={() => handleNav("/analytics")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-              active === "analytics"
-                ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-            }`}
-          >
-            Analytics
-          </button>
-          <button
-            type="button"
-            onClick={() => handleNav("/deposit")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-              active === "deposit"
-                ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
-                : "text-slate-300 hover:text-white hover:bg-slate-800/60"
-            }`}
-          >
-            Deposit
-          </button>
-        </nav>
-
-        {/* Right Header Actions: Notification Bell + Profile Avatar */}
-        <div className="flex items-center gap-3">
-          {/* Notification Bell with Badge */}
-          <button
-            type="button"
-            onClick={() => handleNav("/notifications")}
-            className={`relative p-2 rounded-xl border transition-colors ${
-              active === "notifications"
-                ? "bg-blue-600/30 border-blue-500/40 text-[#DFB338] shadow-sm"
-                : "bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-[#C9A227]"
-            }`}
-            aria-label="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
+            <span className="text-[#C9A227] ml-0.5">LAD</span>
+            <span className="text-white group-hover:text-blue-200 transition-colors">Transfer</span>
           </button>
 
-          {/* Profile Picture / Avatar */}
-          <button
-            type="button"
-            onClick={() => handleNav("/profile")}
-            className={`flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full border transition-all group ${
-              active === "profile"
-                ? "bg-slate-800 border-[#C9A227] shadow-sm"
-                : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80"
-            }`}
-          >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#DFB338] to-[#B8911E] flex items-center justify-center text-stone-900 font-bold text-xs shadow-sm uppercase">
-              {initials}
-            </div>
-            <span
-              className={`hidden sm:inline text-xs font-semibold transition-colors ${
-                active === "profile" ? "text-[#C9A227]" : "text-white group-hover:text-[#C9A227]"
+          {/* Consistent Nav Items: Dashboard, Analytics, Deposit */}
+          <nav className="shrink-0 flex items-center gap-1.5 sm:gap-2">
+            <button
+              ref={active === "dashboard" ? activeNavRef : null}
+              type="button"
+              onClick={() => handleNav("/dashboard")}
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                active === "dashboard"
+                  ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
+                  : "text-slate-300 hover:text-white hover:bg-slate-800/60"
               }`}
             >
-              {userName}
-            </span>
-          </button>
+              Dashboard
+            </button>
+            <button
+              ref={active === "analytics" ? activeNavRef : null}
+              type="button"
+              onClick={() => handleNav("/analytics")}
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                active === "analytics"
+                  ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
+                  : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              Analytics
+            </button>
+            <button
+              ref={active === "deposit" ? activeNavRef : null}
+              type="button"
+              onClick={() => handleNav("/deposit")}
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                active === "deposit"
+                  ? "text-white bg-blue-600/30 border border-blue-500/40 shadow-sm"
+                  : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              Deposit
+            </button>
+          </nav>
+
+          {/* Right Header Actions: Notification Bell + Profile Avatar */}
+          <div className="shrink-0 flex items-center gap-2 sm:gap-3">
+            {/* Notification Bell with Badge */}
+            <button
+              ref={active === "notifications" ? activeNavRef : null}
+              type="button"
+              onClick={() => handleNav("/notifications")}
+              className={`shrink-0 relative p-2 rounded-xl border transition-colors ${
+                active === "notifications"
+                  ? "bg-blue-600/30 border-blue-500/40 text-[#DFB338] shadow-sm"
+                  : "bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-[#C9A227]"
+              }`}
+              aria-label="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Profile Picture / Avatar */}
+            <button
+              ref={active === "profile" ? activeNavRef : null}
+              type="button"
+              onClick={() => handleNav("/profile")}
+              className={`shrink-0 flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full border transition-all group ${
+                active === "profile"
+                  ? "bg-slate-800 border-[#C9A227] shadow-sm"
+                  : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80"
+              }`}
+            >
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#DFB338] to-[#B8911E] flex items-center justify-center text-stone-900 font-bold text-xs shadow-sm uppercase">
+                {initials}
+              </div>
+              <span
+                className={`hidden sm:inline text-xs font-semibold transition-colors ${
+                  active === "profile" ? "text-[#C9A227]" : "text-white group-hover:text-[#C9A227]"
+                }`}
+              >
+                {userName}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </header>
